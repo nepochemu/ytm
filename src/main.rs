@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let q = query.join(" ");
             let url = format!(
-                "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q={}&key={}",
+                "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=20&q={}&key={}",
                 q, api_key
             );
 
