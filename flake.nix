@@ -13,7 +13,7 @@
       in {
         # 🔹 This defines the actual package (used for nix build & nix profile install)
         packages.youtube-mpc = pkgs.rustPlatform.buildRustPackage {
-          pname = "youtube-mpc";
+          pname = "ytm";
           version = "0.1.0";
           src = ./.;
           cargoLock = {
@@ -34,7 +34,7 @@
             pkgs.mpv
             pkgs.openssl
             pkgs.pkg-config
-
+	    pkgs.clang
             pkgs.atuin
             pkgs.zsh-autosuggestions
             pkgs.zsh-completions

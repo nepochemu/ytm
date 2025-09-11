@@ -1,9 +1,10 @@
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, process::Command};
+use reqwest;
+use serde_json::Value;
+use std::{error::Error, fs, process::Command};
 
 #[derive(Parser)]
-#[command(author, version, about)]
+#[command(name = "youtube-mpc", about = "Search and play YouTube via mpv")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -11,111 +12,83 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Search { query: String },
-    Play { video_id: String },
-    Select { index: usize },
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct YoutubeSearchResponse {
-    items: Vec<YoutubeItem>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct YoutubeItem {
-    id: YoutubeId,
-    snippet: Snippet,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct YoutubeId {
-    #[serde(rename = "videoId")]
-    video_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Snippet {
-    title: String,
-    #[serde(rename = "channelTitle")]
-    channel_title: String,
-}
-
-fn cache_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or(".".to_string());
-    PathBuf::from(home).join(".youtube-mpc-last.json")
+    /// Search YouTube for videos
+    Search {
+        /// Query words (no quotes needed)
+        #[arg(num_args(1..), trailing_var_arg = true)]
+        query: Vec<String>,
+    },
+    /// Play a video by its index from the last search
+    Play {
+        /// 1-based index from the last search results
+        index: usize,
+    },
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // ⚠️ replace this with your real API key
-    let api_key = "AIzaSyD1wRjl2XpxxU6g1ts8rSGRXegs8g-A50s";
-
+async fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Search { query } => {
+            // 🔑 Inline your API key here
+            let api_key = "AIzaSyD1wRjl2XpxxU6g1ts8rSGRXegs8g-A50s";
+
+            let q = query.join(" ");
             let url = format!(
                 "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q={}&key={}",
-                query, api_key
+                q, api_key
             );
 
-            let resp = reqwest::get(&url).await?;
-            let text = resp.text().await?;
+            let resp_text = reqwest::get(&url).await?.text().await?;
+            let resp: Value = serde_json::from_str(&resp_text)?;
 
-            match serde_json::from_str::<YoutubeSearchResponse>(&text) {
-                Ok(results) => {
-                    // print results
-                    for (i, item) in results.items.iter().enumerate() {
-                        println!(
-                            "{}: {} [{}] (watch?v={})",
-                            i + 1,
-                            item.snippet.title,
-                            item.snippet.channel_title,
-                            item.id.video_id
-                        );
-                    }
+            let items: Vec<Value> = resp
+                .get("items")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
 
-                    // cache results
-                    let cache = cache_path();
-                    fs::write(cache, serde_json::to_string(&results)?)?;
-                }
-                Err(e) => {
-                    eprintln!("❌ Failed to parse YouTube API JSON: {}", e);
-                    eprintln!("Raw response:\n{}", text);
-                }
+            for (i, item) in items.iter().enumerate() {
+                let video_id = item["id"]["videoId"].as_str().unwrap_or("");
+                let title = item["snippet"]["title"].as_str().unwrap_or("");
+                let channel = item["snippet"]["channelTitle"].as_str().unwrap_or("");
+                println!("{}: {} [{}] (watch?v={})", i + 1, title, channel, video_id);
             }
+
+            fs::write("last_results.json", serde_json::to_string(&resp)?)?;
         }
 
-        Commands::Play { video_id } => {
+        Commands::Play { index } => {
+            let data = fs::read_to_string("last_results.json")
+                .expect("No cached results. Run `search` first.");
+            let resp: Value = serde_json::from_str(&data)?;
+
+            let items: Vec<Value> = resp
+                .get("items")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            if index == 0 || index > items.len() {
+                eprintln!("Invalid index. Use 1..{}", items.len());
+                return Ok(());
+            }
+
+            let video_id = items[index - 1]["id"]["videoId"]
+                .as_str()
+                .unwrap_or("");
+            if video_id.is_empty() {
+                eprintln!("Selected item has no videoId.");
+                return Ok(());
+            }
+
             let url = format!("https://youtube.com/watch?v={}", video_id);
             println!("Playing {}", url);
-
             Command::new("mpv")
-                .arg("--no-video")
                 .arg(&url)
-                .status()?;
-        }
-
-        Commands::Select { index } => {
-            let cache = cache_path();
-            if let Ok(data) = fs::read_to_string(cache) {
-                if let Ok(results) = serde_json::from_str::<YoutubeSearchResponse>(&data) {
-                    if index > 0 && index <= results.items.len() {
-                        let video = &results.items[index - 1];
-                        let url = format!("https://youtube.com/watch?v={}", video.id.video_id);
-                        println!("Playing: {} [{}]", video.snippet.title, video.snippet.channel_title);
-
-                        Command::new("mpv")
-                            .arg("--no-video")
-                            .arg(&url)
-                            .status()?;
-                    } else {
-                        eprintln!("❌ Invalid index: {}", index);
-                    }
-                }
-            } else {
-                eprintln!("❌ No cached search results found. Run `search` first.");
-            }
+                .status()
+                .expect("failed to launch mpv");
         }
     }
 
