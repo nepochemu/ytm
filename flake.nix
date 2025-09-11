@@ -11,7 +11,6 @@
       let
         pkgs = import nixpkgs { inherit system; };
       in {
-        # 🔹 This defines the actual package (used for nix build & nix profile install)
         packages.youtube-mpc = pkgs.rustPlatform.buildRustPackage {
           pname = "ytm";
           version = "0.1.0";
@@ -19,14 +18,13 @@
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
+          cargoSha256 = "sha256-kjVYRYSYTP3YUdPB3WlAME5M+/drj+c8c3SHiMbmDd8="; # 🔹 you still need this
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
         };
 
-        # 🔹 Alias "default" to the youtube-mpc package
         packages.default = self.packages.${system}.youtube-mpc;
 
-        # Dev shell for hacking on the project
         devShells.default = pkgs.mkShell {
           buildInputs = [
             pkgs.rustc
@@ -34,7 +32,7 @@
             pkgs.mpv
             pkgs.openssl
             pkgs.pkg-config
-	    pkgs.clang
+            pkgs.clang
             pkgs.atuin
             pkgs.zsh-autosuggestions
             pkgs.zsh-completions
