@@ -11,7 +11,8 @@
       let
         pkgs = import nixpkgs { inherit system; };
       in {
-        packages.default = pkgs.rustPlatform.buildRustPackage {
+        # 🔹 This defines the actual package (used for nix build & nix profile install)
+        packages.youtube-mpc = pkgs.rustPlatform.buildRustPackage {
           pname = "youtube-mpc";
           version = "0.1.0";
           src = ./.;
@@ -22,6 +23,10 @@
           buildInputs = [ pkgs.openssl ];
         };
 
+        # 🔹 Alias "default" to the youtube-mpc package
+        packages.default = self.packages.${system}.youtube-mpc;
+
+        # Dev shell for hacking on the project
         devShells.default = pkgs.mkShell {
           buildInputs = [
             pkgs.rustc
@@ -30,14 +35,12 @@
             pkgs.openssl
             pkgs.pkg-config
 
-            # essentials for your zsh environment
             pkgs.atuin
             pkgs.zsh-autosuggestions
             pkgs.zsh-completions
             pkgs.zsh-syntax-highlighting
           ];
 
-          # drop straight into your Nix-managed zsh setup
           shellHook = ''
             export SHELL=zsh
             exec zsh --login
