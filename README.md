@@ -37,7 +37,7 @@ You must provide a valid API key from Google Cloud.
     - If you always use from home/server → restrict by IP (IPv4 or IPv6 `/64` prefix).  
     - Otherwise, just leave API restriction in place.
 
-### Basic Usage
+### First run
 
 The first time you run `ytm`, you will be prompted for an API key.  
 You can also set or update it manually:
@@ -45,6 +45,15 @@ You can also set or update it manually:
 ```bash
 ytm --api <YOUR_API_KEY>
 ```
+
+
+### 🚀 Basic Usage
+
+```bash
+ytm portishead third
+```
+Opens static search results in FZF where you can further refine your selection.
+
 
 ### Playlists
 
