@@ -1,0 +1,19 @@
+name: Notify tap repo on release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"   # runs whenever you push a version tag like v0.2.0
+
+jobs:
+  notify-tap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger tap update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: nepochemu/homebrew-ytm
+          event-type: update-formula
+          client-payload: '{"version": "${{ github.ref_name }}"}'
+
