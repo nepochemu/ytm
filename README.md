@@ -1,14 +1,15 @@
 # ytm 🎵
 
-A simple CLI YouTube client in Rust — search and play YouTube videos directly in your terminal using `mpv`.
+A simple CLI YouTube client in Rust — search and play YouTube videos or playlists directly in your terminal using [mpv](https://mpv.io/) with interactive selection powered by [fzf](https://github.com/junegunn/fzf).
 
 ---
 
 ## ✨ Features
 
-- 🔍 Search YouTube for videos from the terminal
-- ▶️ Play results directly with [mpv](https://mpv.io/)
-- 🗂 Caches last search results for quick playback
+- 🔍 Search YouTube and interactively pick results with `fzf`
+- ▶️ Play videos or entire playlists directly with `mpv`
+- 🎧 Audio-only mode (`-n`) for background listening
+- 🔑 API key is stored securely and prompted automatically if missing
 - ⚡ Built with Rust, packaged via Nix flake
 
 ---
@@ -28,14 +29,22 @@ You must provide a valid API key from Google Cloud.
 5. Click **+ Create Credentials → API key**.  
    - Copy the generated key.
 
-### Restrict your API key (important)
+### Restrict your API key (recommended)
 
 - Under **Key restrictions**, set:
   - **API restrictions** → restrict to *YouTube Data API v3*.  
   - **Application restrictions** →  
     - If you always use from home/server → restrict by IP (IPv4 or IPv6 `/64` prefix).  
-    - Otherwise, just leave API restriction in place.  
+    - Otherwise, just leave API restriction in place.
 
+### Usage
+
+The first time you run `ytm`, you will be prompted for an API key.  
+You can also set or update it manually:
+
+```bash
+ytm --api <YOUR_API_KEY>
+```
 
 ---
 
@@ -67,13 +76,13 @@ Install dependencies:
 **Debian/Ubuntu:**
 
 ```bash
-sudo apt install build-essential pkg-config libssl-dev clang mpv
+sudo apt install build-essential pkg-config libssl-dev clang mpv fzf
 ```
 
 **Arch:**
 
 ```bash
-sudo pacman -S base-devel pkgconf openssl mpv
+sudo pacman -S base-devel pkgconf openssl mpv fzf
 ```
 
 Then build and install:
@@ -87,32 +96,27 @@ cp target/release/ytm ~/.local/bin/
 
 ## 🚀 Usage
 
-### Search
+### Interactive search and play
 
 ```bash
-ytm search autechre
+ytm portishead third
 ```
 
-→ Lists top 20 results.
+- Opens `fzf` with top 50 results (videos + playlists).
+- Select an item → plays immediately in `mpv`.
 
-### Play
+### Audio-only mode
 
 ```bash
-ytm play 2
+ytm -n portishead third
 ```
 
-→ Plays the 2nd result from your last search.
+- Same as above, but forces `mpv` to run with `--no-video`.
 
-### Force audio-only mode
-
-```bash
-ytm -n play 1
-```
-
-or
+### Update API key
 
 ```bash
-ytm --no-video play 1
+ytm --api <YOUR_API_KEY>
 ```
 
 ---
@@ -128,7 +132,7 @@ nix develop
 Build and run quickly:
 
 ```bash
-cargo run -- search autechre
+cargo run -- chlär
 ```
 
 Check reproducible Nix build:
@@ -142,18 +146,12 @@ nix build .
 
 ### Project structure
 
-The project has been refactored into modules for clarity:
+- `src/main.rs` → CLI parsing & command dispatch
+- `src/api.rs` → YouTube API functions (search, playlists, validation)
+- `src/config.rs` → API key storage and handling
+- `src/commands.rs` → search + fzf integration, play logic, API key setting
 
-src/main.rs → CLI parsing & command dispatch
-
-src/api.rs → YouTube API functions (search, validate_key, etc.)
-
-src/config.rs → API key storage and config handling
-
-src/commands.rs → logic for search, play, api subcommands
-
-This structure makes it easier to extend features like playlists in the future.
-
+---
 
 ## 📜 License
 

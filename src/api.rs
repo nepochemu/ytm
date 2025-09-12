@@ -14,10 +14,10 @@ pub async fn validate_key(key: &str) -> bool {
     }
 }
 
-/// Run a YouTube search (videos + playlists), 30 results
+/// Run a YouTube search (videos + playlists), 50 results
 pub async fn search(query: &str, key: &str) -> anyhow::Result<Value> {
     let url = format!(
-        "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,playlist&maxResults=30&q={}&key={}",
+        "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,playlist&maxResults=50&q={}&key={}",
         query, key
     );
     let resp = reqwest::get(&url).await?;
@@ -25,7 +25,6 @@ pub async fn search(query: &str, key: &str) -> anyhow::Result<Value> {
     let text = resp.text().await?;
 
     if !status.is_success() {
-        // Try to surface the API error message nicely
         let msg = serde_json::from_str::<Value>(&text)
             .ok()
             .and_then(|v| v.get("error")

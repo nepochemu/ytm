@@ -2,44 +2,39 @@ mod api;
 mod config;
 mod commands;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use std::error::Error;
 
 #[derive(Parser)]
-#[command(name = "ytm", about = "Search and play YouTube via mpv")]
+#[command(name = "ytm", about = "Search and play YouTube via mpv + fzf")]
 struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
+    /// Audio only (no video)
+    #[arg(short = 'n', long)]
+    audio_only: bool,
 
-#[derive(Subcommand)]
-enum Commands {
-    /// Search YouTube for videos
-    Search {
-        #[arg(num_args(1..), trailing_var_arg = true)]
-        query: Vec<String>,
-    },
-    /// Play a video by its index from the last search
-    Play {
-        index: usize,
-    },
+    /// Search terms (e.g. `ytm chlär boiler room`)
+    query: Vec<String>,
+
     /// Set or replace API key
-    Api {
-        key: String,
-    },
+    #[arg(long)]
+    api: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Search { query } => commands::search(query).await?,
-        Commands::Play { index } => commands::play(index).await?,
-        Commands::Api { key } => commands::set_api_key(key).await?,
+    if let Some(key) = cli.api {
+        commands::set_api_key(key).await?;
+        return Ok(());
     }
 
-    Ok(())
-}
+    if cli.query.is_empty() {
+        eprintln!("❌ No search query given.");
+        eprintln!("Usage: ytm [-n] <search terms>  or  ytm --api <key>");
+        return Ok(());
+    }
 
+    commands::search(cli.query, cli.audio_only).await
+}
 

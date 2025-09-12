@@ -32,22 +32,11 @@ fn fzf_select(lines: &[String]) -> Option<usize> {
     }
 }
 
-pub async fn search(query: Vec<String>) -> Result<(), Box<dyn Error>> {
-    let q = query.join(" ");
-
-    // Load or prompt for a key
+pub async fn search(query: Vec<String>, audio_only: bool) -> Result<(), Box<dyn Error>> {
     let api_key = config::load_or_prompt_api_key().await;
 
-    // Try search; on API error, prompt for a fresh key and retry once
-    let resp = match api::search(&q, &api_key).await {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("⚠️  YouTube API error: {e}");
-            println!("Let's update your API key.");
-            let new_key = config::prompt_api_key().await;
-            api::search(&q, &new_key).await?
-        }
-    };
+    let q = query.join(" ");
+    let resp = api::search(&q, &api_key).await?;
 
     let items: Vec<Value> = resp
         .get("items")
@@ -55,21 +44,21 @@ pub async fn search(query: Vec<String>) -> Result<(), Box<dyn Error>> {
         .cloned()
         .unwrap_or_default();
 
-    // ✅ Write results BEFORE fzf so `play()` always has fresh data
+    // Save results before fzf so `play()` always has fresh data
     fs::write("last_results.json", serde_json::to_string(&resp)?)?;
 
-    // Build fzf lines
     let mut lines = Vec::new();
+
     for (i, item) in items.iter().enumerate() {
         let kind = item["id"]["kind"].as_str().unwrap_or("");
         let title = item["snippet"]["title"].as_str().unwrap_or("");
-        let channel = item["snippet"]["channelTitle"].as_str().unwrap_or("");
 
         let line = match kind {
-            "youtube#video" => format!("{}: {} [{}]", i + 1, title, channel),
-            "youtube#playlist" => format!("{}: {} [{}] [playlist]", i + 1, title, channel),
+            "youtube#video" => format!("{}: {}", i + 1, title),
+            "youtube#playlist" => format!("{}: {} [playlist]", i + 1, title),
             _ => continue,
         };
+
         lines.push(line);
     }
 
@@ -79,17 +68,17 @@ pub async fn search(query: Vec<String>) -> Result<(), Box<dyn Error>> {
     }
 
     if let Some(selected) = fzf_select(&lines) {
-        return play(selected).await;
+        return play(selected, audio_only).await;
     } else {
         println!("No selection made.");
-        return Ok(());
     }
+
+    Ok(())
 }
 
-
-pub async fn play(index: usize) -> Result<(), Box<dyn Error>> {
+pub async fn play(index: usize, audio_only: bool) -> Result<(), Box<dyn Error>> {
     let data = fs::read_to_string("last_results.json")
-        .expect("No cached results. Run `search` first.");
+        .expect("No cached results. Run `ytm <query>` first.");
     let resp: Value = serde_json::from_str(&data)?;
 
     let items: Vec<Value> = resp
@@ -117,7 +106,11 @@ pub async fn play(index: usize) -> Result<(), Box<dyn Error>> {
             let url = format!("https://youtube.com/watch?v={}", video_id);
             println!("Playing {}", url);
 
-            Command::new("mpv").arg(&url).status()?;
+            if audio_only {
+                Command::new("mpv").arg("--no-video").arg(&url).status()?;
+            } else {
+                Command::new("mpv").arg(&url).status()?;
+            }
         }
 
         // 📃 Playlist
@@ -132,7 +125,6 @@ pub async fn play(index: usize) -> Result<(), Box<dyn Error>> {
             let api_key = config::load_or_prompt_api_key().await;
             let resp = api::fetch_playlist_items(playlist_id, &api_key).await?;
 
-            // ✅ Fix: give empty Vec a name so lifetime is long enough
             let empty = Vec::new();
             let videos: Vec<&str> = resp["items"]
                 .as_array()
@@ -153,7 +145,11 @@ pub async fn play(index: usize) -> Result<(), Box<dyn Error>> {
 
             println!("Playing playlist with {} videos…", urls.len());
 
-            Command::new("mpv").args(&urls).status()?;
+            if audio_only {
+                Command::new("mpv").arg("--no-video").args(&urls).status()?;
+            } else {
+                Command::new("mpv").args(&urls).status()?;
+            }
         }
 
         _ => {
@@ -163,7 +159,6 @@ pub async fn play(index: usize) -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
 
 pub async fn set_api_key(key: String) -> Result<(), Box<dyn Error>> {
     if api::validate_key(&key).await {
