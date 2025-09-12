@@ -37,7 +37,7 @@ You must provide a valid API key from Google Cloud.
     - If you always use from home/server → restrict by IP (IPv4 or IPv6 `/64` prefix).  
     - Otherwise, just leave API restriction in place.
 
-### Usage
+### Basic Usage
 
 The first time you run `ytm`, you will be prompted for an API key.  
 You can also set or update it manually:
@@ -45,6 +45,20 @@ You can also set or update it manually:
 ```bash
 ytm --api <YOUR_API_KEY>
 ```
+
+### Playlists
+
+If you select a playlist in `fzf` (shown with `[playlist]`), `ytm` will fetch all its videos and queue them in `mpv`.
+
+Playback is controlled directly inside `mpv`:
+
+- **Next video** → `>` (Shift + `.`)  
+- **Previous video** → `<` (Shift + `,`)  
+- **Pause / Resume** → `SPACE`  
+- **Quit** → `q`
+
+This works the same for both normal videos and playlists, but with playlists you can skip forward/back through the queue.
+
 
 ---
 
