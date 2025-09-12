@@ -106,12 +106,14 @@ ytm play 2
 ### Force audio-only mode
 
 ```bash
-ytm -n play 1```
+ytm -n play 1
+```
 
 or
 
 ```bash
-ytm --no-video play 1```
+ytm --no-video play 1
+```
 
 ---
 
