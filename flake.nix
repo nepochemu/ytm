@@ -15,10 +15,12 @@
           pname = "ytm";
           version = "0.1.0";
           src = ./.;
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
-          cargoSha256 = "sha256-kjVYRYSYTP3YUdPB3WlAME5M+/drj+c8c3SHiMbmDd8="; 
+        #  cargoLock = {
+        #    lockFile = ./Cargo.lock;
+        #  };
+        
+	cargoHash = "sha256-CJw8pXj8KSiIkhaMHw3qN5McUsfCbLWutMcC7NnFzJw=";
+
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
         };
