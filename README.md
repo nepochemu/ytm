@@ -86,6 +86,14 @@ cargo build --release
 cp target/release/ytm ~/.local/bin/
 ```
 
+
+**macOS (Homebrew)**
+
+```bash
+brew tap nepochemu/ytm
+brew install ytm
+```
+
 ---
 
 ## 🚀 Usage
