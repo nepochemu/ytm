@@ -73,9 +73,25 @@ async fn validate_key(key: &str) -> bool {
     }
 }
 
+/// Simple heuristic for when audio-only makes sense even without the flag
+fn should_force_no_video(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    // obvious audio file extensions
+    let audio_ext = [".mp3", ".flac", ".wav", ".aac", ".m4a", ".ogg", ".opus"];
+    if audio_ext.iter().any(|ext| lower.ends_with(ext)) {
+        return true;
+    }
+    // common music-only sources
+    lower.contains("music.youtube.com") || lower.contains("soundcloud.com") || lower.contains("bandcamp.com")
+}
+
 #[derive(Parser)]
 #[command(name = "ytm", about = "Search and play YouTube via mpv")]
 struct Cli {
+    /// Play audio only (no video window). Short: -n
+    #[arg(short = 'n', long = "no-video", global = true)]
+    no_video: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -157,8 +173,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let url = format!("https://youtube.com/watch?v={}", video_id);
             println!("Playing {}", url);
 
-            Command::new("mpv")
-                .arg(&url)
+            // Build mpv command with optional --no-video
+            let mut cmd = Command::new("mpv");
+
+            if cli.no_video || should_force_no_video(&url) {
+                cmd.arg("--no-video");
+            }
+
+            cmd.arg(&url)
                 .status()
                 .expect("failed to launch mpv");
         }
