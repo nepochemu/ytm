@@ -103,6 +103,12 @@ ytm play 2
 
 → Plays the 2nd result from your last search.
 
+### Force audio-only mode
+
+```ytm -n play 1```
+or
+```ytm --no-video play 1```
+
 ---
 
 ## 🛠 Development
