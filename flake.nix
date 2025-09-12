@@ -18,7 +18,7 @@
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
-          cargoSha256 = "sha256-kjVYRYSYTP3YUdPB3WlAME5M+/drj+c8c3SHiMbmDd8="; # 🔹 you still need this
+          cargoSha256 = "sha256-kjVYRYSYTP3YUdPB3WlAME5M+/drj+c8c3SHiMbmDd8="; 
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
         };
