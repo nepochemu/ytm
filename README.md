@@ -140,6 +140,21 @@ nix build .
 
 ---
 
+### Project structure
+
+The project has been refactored into modules for clarity:
+
+src/main.rs → CLI parsing & command dispatch
+
+src/api.rs → YouTube API functions (search, validate_key, etc.)
+
+src/config.rs → API key storage and config handling
+
+src/commands.rs → logic for search, play, api subcommands
+
+This structure makes it easier to extend features like playlists in the future.
+
+
 ## 📜 License
 
 MIT
