@@ -13,11 +13,22 @@ pub async fn validate_key(key: &str) -> bool {
     }
 }
 
-/// Run a YouTube search
-pub async fn search_videos(query: &str, key: &str) -> anyhow::Result<Value> {
+/// Run a YouTube search (videos + playlists)
+pub async fn search(query: &str, key: &str) -> anyhow::Result<Value> {
     let url = format!(
-        "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=20&q={}&key={}",
+        "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,playlist&maxResults=20&q={}&key={}",
         query, key
+    );
+    let resp_text = reqwest::get(&url).await?.text().await?;
+    let resp: Value = serde_json::from_str(&resp_text)?;
+    Ok(resp)
+}
+
+/// Fetch videos inside a playlist
+pub async fn fetch_playlist_items(playlist_id: &str, key: &str) -> anyhow::Result<Value> {
+    let url = format!(
+        "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId={}&key={}",
+        playlist_id, key
     );
     let resp_text = reqwest::get(&url).await?.text().await?;
     let resp: Value = serde_json::from_str(&resp_text)?;

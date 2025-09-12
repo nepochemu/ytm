@@ -3,8 +3,7 @@ use serde_json::Value;
 use std::{error::Error, fs, process::Command};
 
 pub async fn search(query: Vec<String>) -> Result<(), Box<dyn Error>> {
-    let api_key = config::prompt_api_key(|k| futures::executor::block_on(api::validate_key(k))).await;
-
+    let api_key = config::load_or_prompt_api_key(api::validate_key).await;
     let q = query.join(" ");
     let resp = api::search_videos(&q, &api_key).await?;
 
@@ -68,4 +67,5 @@ pub async fn set_api_key(key: String) -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
+
 
