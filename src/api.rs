@@ -8,9 +8,33 @@ pub async fn validate_key(key: &str) -> bool {
         "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=test&key={}",
         key
     );
+
     match reqwest::get(&url).await {
         Ok(resp) if resp.status().is_success() => true,
-        _ => false,
+        Ok(resp) => {
+            if let Ok(text) = resp.text().await {
+                if let Ok(json) = serde_json::from_str::<Value>(&text) {
+                    if let Some(reason) = json["error"]["errors"][0]["reason"].as_str() {
+                        eprintln!("❌ API key rejected. Reason: {}", reason);
+                    }
+                    if let Some(msg) = json["error"]["message"].as_str() {
+                        eprintln!("Message: {}", msg);
+                    }
+                }
+
+                eprintln!("\nPossible reasons:\n\
+1. Key is restricted by IP or domain → check restrictions: https://console.cloud.google.com/apis/credentials\n\
+2. Daily quota exceeded (10,000 units/day, ~100 searches).\n\
+3. YouTube Data API v3 is not enabled → enable here: https://console.cloud.google.com/apis/api/youtube.googleapis.com\n\
+4. Key was deleted or rotated in Google Cloud Console.\n\
+5. Key entered incorrectly (copy/paste issue).\n");
+            }
+            false
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to reach YouTube API: {}", e);
+            false
+        }
     }
 }
 
