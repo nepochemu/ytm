@@ -1,19 +1,31 @@
-name: Notify tap repo on release
+name: Release
 
 on:
   push:
     tags:
-      - "v*.*.*"   # runs whenever you push a version tag like v0.2.0
+      - "v*"
 
 jobs:
-  notify-tap:
-    runs-on: ubuntu-latest
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, x86_64]
     steps:
-      - name: Trigger tap update
-        uses: peter-evans/repository-dispatch@v3
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release
+        run: |
+          cargo build --release --target $(rustc -Vv | grep host | awk '{print $2}')
+          tar -czvf ytm-macos-${{ matrix.arch }}.tar.gz -C target/release ytm
+
+      - name: Upload binary
+        uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: nepochemu/homebrew-ytm
-          event-type: update-formula
-          client-payload: '{"version": "${{ github.ref_name }}"}'
+          files: ytm-macos-${{ matrix.arch }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
