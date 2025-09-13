@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let cache = Cache::new(
         dirs::cache_dir().unwrap().join("ytm"),
-        std::time::Duration::from_secs(60 * 60 * 24), // 1 day
+        std::time::Duration::from_secs(60 * 60 * 5), // 1 day
     )?;
 
     let api_key = config::load_or_prompt_api_key().await;

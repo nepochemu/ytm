@@ -23,8 +23,8 @@ impl YouTubeClient {
 
     /// Search YouTube for a query string
     pub async fn search(&self, query: &str) -> Result<Value> {
-        // ✅ check cache first
         if let Some(cached) = self.cache.get::<Value>(query) {
+            eprintln!("⚡ Using cached results for: {}", query);
             return Ok(cached);
         }
 
@@ -43,17 +43,17 @@ impl YouTubeClient {
             .json()
             .await?;
 
-        // ✅ cache whole JSON response
         self.cache.put(query, &resp)?;
+        eprintln!("💾 Cached results for: {}", query);
 
         Ok(resp)
     }
 
     /// Fetch playlist items by playlistId
     pub async fn fetch_playlist_items(&self, playlist_id: &str) -> Result<Value> {
-        // ✅ key cache by "playlist:<id>"
         let key = format!("playlist:{}", playlist_id);
         if let Some(cached) = self.cache.get::<Value>(&key) {
+            eprintln!("⚡ Using cached playlist: {}", playlist_id);
             return Ok(cached);
         }
 
@@ -72,12 +72,13 @@ impl YouTubeClient {
             .await?;
 
         self.cache.put(&key, &resp)?;
+        eprintln!("💾 Cached playlist: {}", playlist_id);
 
         Ok(resp)
     }
 }
 
-/// Validate API key by making a lightweight request
+// ✅ validate_key is NOT tied to a client (it takes `key` directly)
 pub async fn validate_key(key: &str) -> bool {
     let url = "https://www.googleapis.com/youtube/v3/search";
     let resp = reqwest::Client::new()
