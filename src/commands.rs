@@ -17,9 +17,10 @@ fn fzf_select(lines: &[String]) -> Option<usize> {
         .expect("failed to start fzf");
 
     {
-        let mut stdin = child.stdin.take().unwrap();
-        for line in lines {
-            writeln!(stdin, "{}", line).unwrap();
+        if let Some(mut stdin) = child.stdin.take() {
+            for line in lines {
+                let _ = writeln!(stdin, "{}", line);
+            }
         }
     }
 
@@ -29,7 +30,7 @@ fn fzf_select(lines: &[String]) -> Option<usize> {
     if choice.is_empty() {
         None
     } else {
-        choice.split(':').next()?.trim().parse().ok()
+        choice.split(':').next().and_then(|s| s.trim().parse().ok())
     }
 }
 
@@ -42,17 +43,15 @@ pub async fn search(
     let q = query.join(" ");
 
     // ✅ use client instead of api::search
-    let results = client.search(&q).await?;
-
-    // Keep original JSON-style output for play()
-    let resp = serde_json::json!({ "items": results });
+    let resp = client.search(&q).await?;
 
     // Save results before fzf so `play()` always has fresh data
     fs::write("last_results.json", serde_json::to_string(&resp)?)?;
 
     let mut lines = Vec::new();
 
-    for (i, item) in resp["items"].as_array().unwrap().iter().enumerate() {
+    let items = resp["items"].as_array().cloned().unwrap_or_default();
+    for (i, item) in items.iter().enumerate() {
         let kind = item["id"]["kind"].as_str().unwrap_or("");
         let title = item["snippet"]["title"].as_str().unwrap_or("");
 
@@ -85,8 +84,13 @@ pub async fn play(
     index: usize,
     audio_only: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let data = fs::read_to_string("last_results.json")
-        .expect("No cached results. Run `ytm <query>` first.");
+    let data = match fs::read_to_string("last_results.json") {
+        Ok(d) => d,
+        Err(_) => {
+            eprintln!("No cached results. Run `ytm <query>` first.");
+            return Ok(());
+        }
+    };
     let resp: Value = serde_json::from_str(&data)?;
 
     let items: Vec<Value> = resp

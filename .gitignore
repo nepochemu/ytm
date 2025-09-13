@@ -1,3 +1,16 @@
-result/
+# Rust / Cargo
 target/
+Cargo.lock
+
+# Editor / OS junk
+.DS_Store
+*.swp
+*.swo
+
+# Nix build artifacts
+result
+.nix-result
+.direnv/
+
+# Your runtime files
 last_results.json

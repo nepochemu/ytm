@@ -34,7 +34,7 @@ impl YouTubeClient {
             .query(&[
                 ("part", "snippet"),
                 ("type", "video,playlist"),
-                ("maxResults", "10"),
+                ("maxResults", "50"),
                 ("q", query),
                 ("key", &self.api_key),
             ])
