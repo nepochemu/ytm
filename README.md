@@ -17,7 +17,11 @@ A simple CLI YouTube client in Rust — search and play YouTube audio/videos or 
 ## 🔑 API Key Setup
 
 ytm uses the **YouTube Data API v3**.  
-You must provide a valid API key from Google Cloud.
+You must provide a valid API key from Google Cloud. 
+
+### API key Limitations
+Google free plan is limited to 100 searches per day.
+
 
 ### Steps to create an API key
 
