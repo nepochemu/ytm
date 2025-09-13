@@ -6,7 +6,11 @@ use clap::Parser;
 use std::error::Error;
 
 #[derive(Parser)]
-#[command(name = "ytm", about = "Search and play YouTube via mpv + fzf")]
+#[command(
+    name = "ytm",
+    version,
+    about = "Search and play YouTube via mpv + fzf"
+)]
 struct Cli {
     /// Audio only (no video)
     #[arg(short = 'n', long)]
