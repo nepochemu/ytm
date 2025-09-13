@@ -2,7 +2,7 @@ mod api;
 mod config;
 mod commands;
 
-use clap::Parser;
+use clap::{Parser, ArgAction};
 use std::error::Error;
 
 #[derive(Parser)]
@@ -12,6 +12,10 @@ use std::error::Error;
     about = "Search and play YouTube via mpv + fzf"
 )]
 struct Cli {
+    /// Print version (-v or --version)
+    #[arg(short = 'v', long = "version", action = ArgAction::Version)]
+    version: Option<bool>,
+
     /// Audio only (no video)
     #[arg(short = 'n', long)]
     audio_only: bool,
