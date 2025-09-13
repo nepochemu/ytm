@@ -93,12 +93,13 @@ cp target/release/ytm ~/.local/bin/
 
 **macOS (Homebrew)**
 
+You can install **ytm** on macOS using [Homebrew](https://brew.sh/):
+
 ```bash
-brew tap nepochemu/ytm
-brew install ytm
+brew install nepochemu/ytm/ytm
 ```
 
-Warning: Installs massive toolchain alongside requred for complilation. Remove unnesasary packages afterwards manually.
+This will download the correct prebuilt binary for your Mac (arm64 for Apple Silicon, x86_64 for Intel).
 
 ---
 
