@@ -1,90 +1,95 @@
-use reqwest;
+use crate::cache::Cache;
+use anyhow::Result;
+use serde::Deserialize;
 use serde_json::Value;
-use anyhow::anyhow;
 
-/// Quick check if API key works
+#[derive(Debug, Deserialize, Clone)]
+pub struct VideoMeta {
+    pub id: String,
+    pub title: String,
+    pub channel: String,
+    pub url: String,
+}
+
+pub struct YouTubeClient {
+    api_key: String,
+    cache: Cache,
+}
+
+impl YouTubeClient {
+    pub fn new(api_key: String, cache: Cache) -> Self {
+        Self { api_key, cache }
+    }
+
+    /// Search YouTube for a query string
+    pub async fn search(&self, query: &str) -> Result<Value> {
+        // ✅ check cache first
+        if let Some(cached) = self.cache.get::<Value>(query) {
+            return Ok(cached);
+        }
+
+        let url = "https://www.googleapis.com/youtube/v3/search";
+        let resp: Value = reqwest::Client::new()
+            .get(url)
+            .query(&[
+                ("part", "snippet"),
+                ("type", "video,playlist"),
+                ("maxResults", "10"),
+                ("q", query),
+                ("key", &self.api_key),
+            ])
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        // ✅ cache whole JSON response
+        self.cache.put(query, &resp)?;
+
+        Ok(resp)
+    }
+
+    /// Fetch playlist items by playlistId
+    pub async fn fetch_playlist_items(&self, playlist_id: &str) -> Result<Value> {
+        // ✅ key cache by "playlist:<id>"
+        let key = format!("playlist:{}", playlist_id);
+        if let Some(cached) = self.cache.get::<Value>(&key) {
+            return Ok(cached);
+        }
+
+        let url = "https://www.googleapis.com/youtube/v3/playlistItems";
+        let resp: Value = reqwest::Client::new()
+            .get(url)
+            .query(&[
+                ("part", "snippet"),
+                ("maxResults", "50"),
+                ("playlistId", playlist_id),
+                ("key", &self.api_key),
+            ])
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        self.cache.put(&key, &resp)?;
+
+        Ok(resp)
+    }
+}
+
+/// Validate API key by making a lightweight request
 pub async fn validate_key(key: &str) -> bool {
-    let url = format!(
-        "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=test&key={}",
-        key
-    );
+    let url = "https://www.googleapis.com/youtube/v3/search";
+    let resp = reqwest::Client::new()
+        .get(url)
+        .query(&[
+            ("part", "snippet"),
+            ("maxResults", "1"),
+            ("q", "test"),
+            ("key", key),
+        ])
+        .send()
+        .await;
 
-    match reqwest::get(&url).await {
-        Ok(resp) if resp.status().is_success() => true,
-        Ok(resp) => {
-            if let Ok(text) = resp.text().await {
-                if let Ok(json) = serde_json::from_str::<Value>(&text) {
-                    if let Some(reason) = json["error"]["errors"][0]["reason"].as_str() {
-                        eprintln!("❌ API key rejected. Reason: {}", reason);
-                    }
-                    if let Some(msg) = json["error"]["message"].as_str() {
-                        eprintln!("Message: {}", msg);
-                    }
-                }
-
-                eprintln!("\nPossible reasons:\n\
-1. Key is restricted by IP or domain → check restrictions: https://console.cloud.google.com/apis/credentials\n\
-2. Daily quota exceeded (10,000 units/day, ~100 searches).\n\
-3. YouTube Data API v3 is not enabled → enable here: https://console.cloud.google.com/apis/api/youtube.googleapis.com\n\
-4. Key was deleted or rotated in Google Cloud Console.\n\
-5. Key entered incorrectly (copy/paste issue).\n");
-            }
-            false
-        }
-        Err(e) => {
-            eprintln!("❌ Failed to reach YouTube API: {}", e);
-            false
-        }
-    }
+    resp.map(|r| r.status().is_success()).unwrap_or(false)
 }
-
-/// Run a YouTube search (videos + playlists), 50 results
-pub async fn search(query: &str, key: &str) -> anyhow::Result<Value> {
-    let url = format!(
-        "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,playlist&maxResults=50&q={}&key={}",
-        query, key
-    );
-    let resp = reqwest::get(&url).await?;
-    let status = resp.status();
-    let text = resp.text().await?;
-
-    if !status.is_success() {
-        let msg = serde_json::from_str::<Value>(&text)
-            .ok()
-            .and_then(|v| v.get("error")
-                .and_then(|e| e.get("message"))
-                .and_then(|m| m.as_str())
-                .map(|s| s.to_string()))
-            .unwrap_or_else(|| text.clone());
-        return Err(anyhow!("YouTube API search failed (status {}): {}", status, msg));
-    }
-
-    let v: Value = serde_json::from_str(&text)?;
-    Ok(v)
-}
-
-/// Fetch videos inside a playlist
-pub async fn fetch_playlist_items(playlist_id: &str, key: &str) -> anyhow::Result<Value> {
-    let url = format!(
-        "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId={}&key={}",
-        playlist_id, key
-    );
-    let resp = reqwest::get(&url).await?;
-    let status = resp.status();
-    let text = resp.text().await?;
-
-    if !status.is_success() {
-        let msg = serde_json::from_str::<Value>(&text)
-            .ok()
-            .and_then(|v| v.get("error")
-                .and_then(|e| e.get("message"))
-                .and_then(|m| m.as_str())
-                .map(|s| s.to_string()))
-            .unwrap_or_else(|| text.clone());
-        return Err(anyhow!("YouTube API playlistItems failed (status {}): {}", status, msg));
-    }
-
-    let v: Value = serde_json::from_str(&text)?;
-    Ok(v)
-}
-

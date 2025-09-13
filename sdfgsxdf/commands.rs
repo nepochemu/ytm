@@ -1,5 +1,4 @@
 use crate::{api, config};
-use crate::api::YouTubeClient;
 use serde_json::Value;
 use std::{
     error::Error,
@@ -33,26 +32,24 @@ fn fzf_select(lines: &[String]) -> Option<usize> {
     }
 }
 
-/// Perform a search using YouTubeClient (with cache)
-pub async fn search(
-    client: &YouTubeClient,
-    query: Vec<String>,
-    audio_only: bool,
-) -> Result<(), Box<dyn Error>> {
+pub async fn search(query: Vec<String>, audio_only: bool) -> Result<(), Box<dyn Error>> {
+    let api_key = config::load_or_prompt_api_key().await;
+
     let q = query.join(" ");
+    let resp = api::search(&q, &api_key).await?;
 
-    // ✅ use client instead of api::search
-    let results = client.search(&q).await?;
-
-    // Keep original JSON-style output for play()
-    let resp = serde_json::json!({ "items": results });
+    let items: Vec<Value> = resp
+        .get("items")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
 
     // Save results before fzf so `play()` always has fresh data
     fs::write("last_results.json", serde_json::to_string(&resp)?)?;
 
     let mut lines = Vec::new();
 
-    for (i, item) in resp["items"].as_array().unwrap().iter().enumerate() {
+    for (i, item) in items.iter().enumerate() {
         let kind = item["id"]["kind"].as_str().unwrap_or("");
         let title = item["snippet"]["title"].as_str().unwrap_or("");
 
@@ -71,7 +68,7 @@ pub async fn search(
     }
 
     if let Some(selected) = fzf_select(&lines) {
-        return play(client, selected, audio_only).await;
+        return play(selected, audio_only).await;
     } else {
         println!("No selection made.");
     }
@@ -79,12 +76,7 @@ pub async fn search(
     Ok(())
 }
 
-/// Play a previously selected item
-pub async fn play(
-    client: &YouTubeClient,
-    index: usize,
-    audio_only: bool,
-) -> Result<(), Box<dyn Error>> {
+pub async fn play(index: usize, audio_only: bool) -> Result<(), Box<dyn Error>> {
     let data = fs::read_to_string("last_results.json")
         .expect("No cached results. Run `ytm <query>` first.");
     let resp: Value = serde_json::from_str(&data)?;
@@ -130,8 +122,8 @@ pub async fn play(
             }
             println!("Fetching playlist {}", playlist_id);
 
-            // ✅ use client instead of raw api::fetch_playlist_items
-            let resp = client.fetch_playlist_items(playlist_id).await?;
+            let api_key = config::load_or_prompt_api_key().await;
+            let resp = api::fetch_playlist_items(playlist_id, &api_key).await?;
 
             let empty = Vec::new();
             let videos: Vec<&str> = resp["items"]
@@ -176,3 +168,4 @@ pub async fn set_api_key(key: String) -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
+
