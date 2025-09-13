@@ -94,6 +94,8 @@ brew tap nepochemu/ytm
 brew install ytm
 ```
 
+Warning: Installs massive toolchain alongside requred for complilation. Remove unnesasary packages afterwards manually.
+
 ---
 
 ## 🚀 Usage
