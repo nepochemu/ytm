@@ -96,8 +96,8 @@ jobs:
 
           sed -i "s/^  version \".*\"/  version \"${VERSION}\"/" Formula/ytm.rb
 
-          sed -i "s|/releases/download/v[0-9.]\+/ytm-macos-arm64.tar.gz|/releases/download/v${VERSION}/ytm-macos-arm64.tar.gz|" Formula/ytm.rb
-          sed -i "s|/releases/download/v[0-9.]\+/ytm-macos-x86_64.tar.gz|/releases/download/v${VERSION}/ytm-macos-x86_64.tar.gz|" Formula/ytm.rb
+          sed -i "s|/releases/download/v[^/]\+/ytm-macos-arm64.tar.gz|/releases/download/v${VERSION}/ytm-macos-arm64.tar.gz|" Formula/ytm.rb
+          sed -i "s|/releases/download/v[^/]\+/ytm-macos-x86_64.tar.gz|/releases/download/v${VERSION}/ytm-macos-x86_64.tar.gz|" Formula/ytm.rb
 
           sed -i "/ytm-macos-arm64.tar.gz/{n;s/sha256 \".*\"/sha256 \"${{ steps.shasum.outputs.arm }}\"/}" Formula/ytm.rb
           sed -i "/ytm-macos-x86_64.tar.gz/{n;s/sha256 \".*\"/sha256 \"${{ steps.shasum.outputs.intel }}\"/}" Formula/ytm.rb
