@@ -67,6 +67,20 @@ The binary will be available globally as `ytm`.
 
 ---
 
+### Non-Nix systems simple install
+
+Download and extract the prebuilt binary:
+
+```bash
+curl -L -o ytm-linux-x86_64.tar.gz https://github.com/nepochemu/ytm/releases/download/v0.2.3/ytm-linux-x86_64.tar.gz
+tar -xvzf ytm-linux-x86_64.tar.gz
+
+sudo mv ytm /usr/local/bin/
+
+ytm -v
+```
+
+
 ### Non-Nix systems (manual build)
 
 Install dependencies:
