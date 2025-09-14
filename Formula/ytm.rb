@@ -1,17 +1,17 @@
 class Ytm < Formula
   desc "YouTube terminal music client"
   homepage "https://github.com/nepochemu/ytm"
-  version "0.1.6"
+  version "0.0.0-dev"
 
   on_macos do
     on_arm do
-      url "https://github.com/nepochemu/ytm/releases/download/v0.1.6/ytm-macos-arm64.tar.gz"
-      sha256 "e84322fb942cc01dc0545723f382efec2e6107f5701280db093ecfc188a91b5c"
+      url "https://github.com/nepochemu/ytm/releases/download/v0.0.0-dev/ytm-macos-arm64.tar.gz"
+      sha256 "<sha256_arm64>"
     end
 
     on_intel do
-      url "https://github.com/nepochemu/ytm/releases/download/v0.1.6/ytm-macos-x86_64.tar.gz"
-      sha256 "6ed1b831acfe6545a4b2984dfe89b78b170202b1856b910ceebd5e359df421ed"
+      url "https://github.com/nepochemu/ytm/releases/download/v0.0.0-dev/ytm-macos-x86_64.tar.gz"
+      sha256 "<sha256_x86_64>"
     end
   end
 
