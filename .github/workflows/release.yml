@@ -9,8 +9,28 @@ permissions:
   contents: write
 
 jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version from tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Setting Cargo.toml version to $VERSION"
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Cargo.toml
+          git commit -m "Bump version to $VERSION from tag" || echo "No changes to commit"
+          git push
+
   build-arm64:
     runs-on: macos-14
+    needs: bump-version
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -27,6 +47,7 @@ jobs:
 
   build-x86_64:
     runs-on: macos-13
+    needs: bump-version
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -80,8 +101,8 @@ jobs:
 
       - name: Commit formula update
         run: |
-          git config user.name  "github-actions"
+          git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add Formula/ytm.rb
-          git commit -m "Update Homebrew formula for ${{ github.ref_name }}"
+          git commit -m "Update Homebrew formula for ${{ github.ref_name }}" || echo "No changes to commit"
           git push
