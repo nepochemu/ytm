@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Set version from tag
         run: |
@@ -22,6 +25,7 @@ jobs:
 
       - name: Commit version bump
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add Cargo.toml
@@ -67,10 +71,9 @@ jobs:
     needs: [build-arm64, build-x86_64]
     steps:
       - uses: actions/checkout@v4
-      - name: Switch to default branch
-        run: |
-          git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout ${{ github.event.repository.default_branch }}
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Download release assets
         uses: robinraju/release-downloader@v1.8
