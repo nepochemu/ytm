@@ -3,6 +3,9 @@ class Ytm < Formula
   homepage "https://github.com/nepochemu/ytm"
   version "0.2.5"
 
+  depends_on "mpv"
+  depends_on "fzf"
+
   on_macos do
     on_arm do
       url "https://github.com/nepochemu/ytm/releases/download/v0.2.5/ytm-macos-arm64.tar.gz"
