@@ -20,7 +20,7 @@ ytm uses the **YouTube Data API v3**.
 You must provide a valid API key from Google Cloud. 
 
 ### API key Limitations
-Google free plan is limited to 100 searches per day.
+Google free plan is limited to 100 searches per day. Repetitive seach queries will be cached locally to minimise API calls.
 
 
 ### Steps to create an API key
