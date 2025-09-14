@@ -32,7 +32,7 @@ jobs:
           git commit -m "Bump version to $VERSION from tag" || echo "No changes to commit"
           git push
 
-  build-arm64:
+    build-arm64:
     runs-on: macos-14
     needs: bump-version
     steps:
@@ -40,7 +40,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.repository.default_branch }}
-    
+
       - uses: dtolnay/rust-toolchain@stable
       - name: Build ARM64 binary
         run: |
@@ -53,12 +53,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-x86_64:
+
+    build-x86_64:
     runs-on: macos-13
     needs: bump-version
     steps:
       - uses: actions/checkout@v4
-      with:
+        with:
           fetch-depth: 0
           ref: ${{ github.event.repository.default_branch }}
           
@@ -73,6 +74,7 @@ jobs:
           files: ytm-macos-x86_64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
   update-formula:
     runs-on: ubuntu-latest
