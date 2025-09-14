@@ -34,6 +34,7 @@ Google free plan is limited to 100 searches per day. Repetitive seach queries wi
    - Copy the generated key.
 
 ### Restrict your API key (recommended)
+Dont leave your API key unrestricted to prevent unauthorised usage of the key in case of key leakage.
 
 - Under **Key restrictions**, set:
   - **API restrictions** → restrict to *YouTube Data API v3*.  
