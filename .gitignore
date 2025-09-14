@@ -14,3 +14,7 @@ result
 
 # Your runtime files
 last_results.json
+
+# Ignore local release tarballs
+ytm-*.tar.gz
+
