@@ -1,49 +1,21 @@
-permissions:
-  contents: write
+class Ytm < Formula
+  desc "YouTube terminal music client"
+  homepage "https://github.com/nepochemu/ytm"
+  version "0.1.1"
 
-jobs:
-  update-formula:
-    runs-on: ubuntu-latest
-    needs: [build-macos]         # wait for your build job
-    steps:
-      - uses: actions/checkout@v4
+  on_macos do
+    on_arm do
+      url "https://github.com/nepochemu/ytm/releases/download/v0.1.1/ytm-macos-arm64.tar.gz"
+      sha256 "4dba676103cbd4aef82e3d8c7c3a364a27c86135bbfc4df566b2087c6770f265"
+    end
 
-      - name: Switch to default branch
-        run: |
-          git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout ${{ github.event.repository.default_branch }}
+    on_intel do
+      url "https://github.com/nepochemu/ytm/releases/download/v0.1.1/ytm-macos-x86_64.tar.gz"
+      sha256 "4931b6fa84f805fdbaf5c2ad9a6962e1c8d2ddaefb3acb70a9bea093a9c78015"
+    end
+  end
 
-      - name: Download release assets
-        uses: robinraju/release-downloader@v1.8
-        with:
-          repository: ${{ github.repository }}
-          tag: ${{ github.ref_name }}
-          fileName: "ytm-macos-*.tar.gz"
-
-      - name: Calculate checksums
-        id: shasum
-        run: |
-          ARM_SHA=$(shasum -a 256 ytm-macos-arm64.tar.gz | awk '{print $1}')
-          INTEL_SHA=$(shasum -a 256 ytm-macos-x86_64.tar.gz | awk '{print $1}')
-          echo "arm=$ARM_SHA" >> $GITHUB_OUTPUT
-          echo "intel=$INTEL_SHA" >> $GITHUB_OUTPUT
-
-      - name: Update formula
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-
-          sed -i "s/^  version \".*\"/  version \"${VERSION}\"/" Formula/ytm.rb
-
-          sed -i "s|/releases/download/v[0-9.]\+/ytm-macos-arm64.tar.gz|/releases/download/v${VERSION}/ytm-macos-arm64.tar.gz|" Formula/ytm.rb
-          sed -i "s|/releases/download/v[0-9.]\+/ytm-macos-x86_64.tar.gz|/releases/download/v${VERSION}/ytm-macos-x86_64.tar.gz|" Formula/ytm.rb
-
-          sed -i "/ytm-macos-arm64.tar.gz/{n;s/sha256 \".*\"/sha256 \"${{ steps.shasum.outputs.arm }}\"/}" Formula/ytm.rb
-          sed -i "/ytm-macos-x86_64.tar.gz/{n;s/sha256 \".*\"/sha256 \"${{ steps.shasum.outputs.intel }}\"/}" Formula/ytm.rb
-
-      - name: Commit formula update
-        run: |
-          git config user.name  "github-actions"
-          git config user.email "github-actions@github.com"
-          git add Formula/ytm.rb
-          git commit -m "Update Homebrew formula for ${{ github.ref_name }}"
-          git push
+  def install
+    bin.install "ytm"
+  end
+end
