@@ -19,7 +19,7 @@
         #    lockFile = ./Cargo.lock;
         #  };
         
-	cargoHash = "sha256-YDqBLLPGGFFcqYa7UnH/cfp0GhrH1QWXkvgNPBIVibA=";
+	cargoHash = "sha256-9bG56/rIp/oMB4GRi6Pp5aMjbSW5hMQAahYqo8cUeWE=";
 
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
