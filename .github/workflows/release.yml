@@ -32,6 +32,8 @@ jobs:
           git commit -m "Bump version to $VERSION from tag" || echo "No changes to commit"
           git push
 
+
+
   build-arm64:
     runs-on: macos-14
     needs: bump-version
@@ -53,6 +55,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+
+
   build-x86_64:
     runs-on: macos-13
     needs: bump-version
@@ -73,6 +77,34 @@ jobs:
           files: ytm-macos-x86_64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+
+  build-linux-x86_64:
+    runs-on: ubuntu-latest
+    needs: bump-version
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Linux x86_64 binary
+        run: |
+          cargo build --release --target x86_64-unknown-linux-gnu
+          tar -czvf ytm-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-gnu/release ytm
+
+      - name: Upload Linux x86_64 binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ytm-linux-x86_64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      
 
   update-formula:
     runs-on: ubuntu-latest
