@@ -1,20 +1,20 @@
-# ytm 🎵
+# ytm - youtube music
 
 A simple CLI YouTube client in Rust — search and play YouTube audio/videos or playlists directly in your terminal using [mpv](https://mpv.io/) with interactive selection powered by [fzf](https://github.com/junegunn/fzf). The project is ispired by excellent [Yutube-TUI](https://github.com/Siriusmart/youtube-tui) project. The intention here is to have pure gui-less client targeted for music listning inside terminal.
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔍 Search YouTube and interactively pick results with `fzf`
-- ▶️ Play videos or entire playlists directly with `mpv`
-- 🎧 Audio-only mode (`-n`) for background listening
-- 🔑 API key is stored securely and prompted automatically if missing
-- ⚡ Built with Rust, packaged via Nix flake
+- Search YouTube and interactively pick results with `fzf`
+- Play videos or entire playlists directly with `mpv`
+- Audio-only mode (`-n`) for background listening
+- API key is stored securely and prompted automatically if missing
+- Built with Rust, packaged via Nix flake
 
 ---
 
-## 🔑 API Key Setup
+## API Key Setup
 
 ytm uses the **YouTube Data API v3**.  
 You must provide a valid API key from Google Cloud. 
@@ -47,7 +47,7 @@ Dont leave your API key unrestricted to prevent unauthorised usage of the key in
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### NixOS (system-wide)
 
@@ -126,7 +126,7 @@ brew install ytm
 
 ---
 
-## 🚀 Usage
+## Usage
 
 
 ### First run
