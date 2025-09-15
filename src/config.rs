@@ -38,7 +38,7 @@ pub async fn prompt_api_key() -> String {
             save_api_key(&key);
             return key;
         } else {
-            eprintln!("❌ API key not valid, try again.");
+            eprintln!("[!] API key not valid, try again.");
         }
     }
 }

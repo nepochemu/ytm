@@ -44,7 +44,7 @@ impl YouTubeClient {
             .await?;
 
         self.cache.put(query, &resp)?;
-        eprintln!("💾 Cached results for: {}", query);
+        eprintln!("[i] Cached results for: {}", query);
 
         Ok(resp)
     }
@@ -53,7 +53,7 @@ impl YouTubeClient {
     pub async fn fetch_playlist_items(&self, playlist_id: &str) -> Result<Value> {
         let key = format!("playlist:{}", playlist_id);
         if let Some(cached) = self.cache.get::<Value>(&key) {
-            eprintln!("⚡ Using cached playlist: {}", playlist_id);
+            eprintln!("[i] Using cached playlist: {}", playlist_id);
             return Ok(cached);
         }
 
@@ -72,7 +72,7 @@ impl YouTubeClient {
             .await?;
 
         self.cache.put(&key, &resp)?;
-        eprintln!("💾 Cached playlist: {}", playlist_id);
+        eprintln!("[i] Cached playlist: {}", playlist_id);
 
         Ok(resp)
     }

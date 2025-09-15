@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if cli.query.is_empty() {
-        eprintln!("❌ No search query given.");
+        eprintln!("[!] No search query given.");
         eprintln!("Usage: ytm [-n] <search terms>  or  ytm --api <key>");
         return Ok(());
     }

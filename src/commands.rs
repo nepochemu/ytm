@@ -42,7 +42,7 @@ pub async fn search(
 ) -> Result<(), Box<dyn Error>> {
     let q = query.join(" ");
 
-    // ✅ use client instead of api::search
+    // [!] use client instead of api::search
     let resp = client.search(&q).await?;
 
     // Save results before fzf so `play()` always has fresh data
@@ -108,7 +108,7 @@ pub async fn play(
     let kind = item["id"]["kind"].as_str().unwrap_or("");
 
     match kind {
-        // 🎥 Video
+        // Video
         "youtube#video" => {
             let video_id = item["id"]["videoId"].as_str().unwrap_or("");
             if video_id.is_empty() {
@@ -125,7 +125,7 @@ pub async fn play(
             }
         }
 
-        // 📃 Playlist
+        // Playlist
         "youtube#playlist" => {
             let playlist_id = item["id"]["playlistId"].as_str().unwrap_or("");
             if playlist_id.is_empty() {
@@ -134,7 +134,7 @@ pub async fn play(
             }
             println!("Fetching playlist {}", playlist_id);
 
-            // ✅ use client instead of raw api::fetch_playlist_items
+            // [!] use client instead of raw api::fetch_playlist_items
             let resp = client.fetch_playlist_items(playlist_id).await?;
 
             let empty = Vec::new();
@@ -176,7 +176,7 @@ pub async fn set_api_key(key: String) -> Result<(), Box<dyn Error>> {
     if api::validate_key(&key).await {
         config::save_api_key(&key);
     } else {
-        eprintln!("❌ Provided API key is not valid.");
+        eprintln!("[!] Provided API key is not valid.");
     }
     Ok(())
 }
