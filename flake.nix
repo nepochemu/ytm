@@ -16,36 +16,68 @@
           version = "0.1.0";
           src = ./.;
 
-          cargoHash = "sha256-9bG56/rIp/oMB4GRi6Pp5aMjbSW5hMQAahYqo8cUeWE=";
+          cargoHash = "sha256-Vg2GKV/i8lobaUM3bmU2iFp6EimwBYIgsVaS5TK6v78=";
 
-          nativeBuildInputs = [ pkgs.pkg-config ];
-          buildInputs = [ pkgs.openssl ];
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.makeWrapper
+          ];
+          buildInputs = [
+            pkgs.openssl
+            pkgs.mpv
+            pkgs.cacert
+            pkgs.fzf
+          ];
+
+          postInstall = ''
+           wrapProgram $out/bin/ytm \
+           --set PATH ${pkgs.lib.makeBinPath [ pkgs.mpv pkgs.cacert pkgs.fzf ]}
+          '';
+
         };
 
         packages.default = self.packages.${system}.youtube-mpc;
 
+        apps.default = pkgs.buildFHSEnv {
+          name = "ytm-fhs";
+          targetPkgs = pkgs: [ pkgs.openssl pkgs.cacert pkgs.mpv ];
+          runScript = "${self.packages.${system}.youtube-mpc}/bin/ytm";
+        };
+
+        apps.ytm-fhs = {
+          type = "app";
+          program =
+            let fhsEnv = pkgs.buildFHSEnv {
+              name = "ytm-fhs";
+              targetPkgs = pkgs: [ pkgs.openssl pkgs.cacert pkgs.mpv ];
+              runScript = "${self.packages.${system}.youtube-mpc}/bin/ytm";
+            };
+            in "${fhsEnv}/bin/ytm-fhs";
+        };
+
         devShells.default = pkgs.mkShell {
-  buildInputs = [
-    pkgs.rustc
-    pkgs.cargo
-    pkgs.mpv
-    pkgs.openssl
-    pkgs.pkg-config
-    pkgs.clang
-    pkgs.atuin
-    pkgs.zsh-autosuggestions
-    pkgs.zsh-completions
-    pkgs.zsh-syntax-highlighting
-  ];
+          buildInputs = [
+            pkgs.rustc
+            pkgs.cargo
+            pkgs.mpv
+            pkgs.openssl
+            pkgs.pkg-config
+            pkgs.clang
+            pkgs.atuin
+            pkgs.zsh-autosuggestions
+            pkgs.zsh-completions
+            pkgs.zsh-syntax-highlighting
+            pkgs.cacert
+            pkgs.fzf
+          ];
 
-  # 🔑 Tell Cargo where openssl.pc lives
-  PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+          # 🔑 Tell Cargo where openssl.pc lives
+          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
 
-  shellHook = ''
-    export SHELL=zsh
-    exec zsh --login
-  '';
-};
-
+          shellHook = ''
+            export SHELL=zsh
+            exec zsh --login
+          '';
+        };
       });
 }

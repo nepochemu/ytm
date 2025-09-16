@@ -1,64 +1,85 @@
 use clap::{Parser, Subcommand};
 
+mod api;
+mod cache;
 mod commands;
+mod config;
 
 #[derive(Parser)]
-#[command(author, version, about)]
-pub struct Cli {
-    /// Search and play query
-    pub query: Option<String>,
+#[command(name = "ytm")]
+#[command(about = "YouTube terminal music player")]
+struct Cli {
+    /// Search term (shortcut for `ytm search <term>`) - supports multiple words
+    query: Vec<String>,
 
-    /// API key override
-    #[arg(long)]
-    pub api: Option<String>,
+    /// Play in background (release terminal, always audio-only)
+    #[arg(short, long, global = true)]
+    background: bool,
 
-    /// Background mode (release terminal, control with pause/stop/next/prev)
-    #[arg(short, long)]
-    pub background: bool,
+    /// Enable video window (by default, runs audio-only)
+    #[arg(short = 'v', long, global = true)]
+    video: bool,
+
+    /// Print version and exit
+    #[arg(long, global = true)]
+    version: bool,
 
     #[command(subcommand)]
-    pub cmd: Option<Commands>,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
-pub enum Commands {
+enum Commands {
+    Search {
+        query: String,
+        #[arg(short, long)]
+        background: bool,
+        #[arg(short, long)]
+        api: Option<String>,
+    },
+    Play { url: String, #[arg(short, long)] background: bool },
     Pause,
-    Stop,
     Next,
     Prev,
+    Stop,
     Status,
 }
 
-fn try_clipboard_query() -> Option<String> {
-    use copypasta::{ClipboardContext, ClipboardProvider};
-    let mut ctx = ClipboardContext::new().ok()?;
-    let text = ctx.get_contents().ok()?;
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    Some(trimmed.to_string())
-}
-
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    match cli.cmd {
-        Some(Commands::Pause)  => commands::pause()?,
-        Some(Commands::Stop)   => commands::stop()?,
-        Some(Commands::Next)   => commands::next()?,
-        Some(Commands::Prev)   => commands::prev()?,
-        Some(Commands::Status) => commands::status()?,
-        None => {
-            if let Some(query) = cli.query {
-                commands::search_and_play(&query, cli.api, cli.background)?;
-            } else if let Some(q) = try_clipboard_query() {
-                commands::search_and_play(&q, cli.api, cli.background)?;
-            } else {
-                commands::status()?;
-            }
-        }
+    if cli.version {
+        println!("ytm version {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
     }
 
-    Ok(())
+    // By default, audio-only. -v enables video. -b (background) always disables video.
+    let no_video = !cli.video || cli.background;
+
+    // Only run search_and_play if a query is provided and no subcommand is present
+    if !cli.query.is_empty() && cli.command.is_none() {
+        let query = cli.query.join(" ");
+        return commands::search_and_play(&query, None, cli.background, no_video).await;
+    }
+
+    match cli.command {
+        Some(Commands::Search { query, background, api }) => {
+            let no_video = !cli.video || background;
+            commands::search_and_play(&query, api, background, no_video).await
+        }
+        Some(Commands::Play { url, background }) => {
+            let no_video = !cli.video || background;
+            commands::play(&url, background, no_video)
+        }
+        Some(Commands::Pause) => commands::pause(),
+        Some(Commands::Next) => commands::next(),
+        Some(Commands::Prev) => commands::prev(),
+        Some(Commands::Stop) => commands::stop(),
+        Some(Commands::Status) => commands::status(),
+        None => {
+            eprintln!("Usage: ytm <query> or ytm search <query>");
+            Ok(())
+        }
+    }
 }

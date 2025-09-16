@@ -1,96 +1,110 @@
-use crate::cache::Cache;
 use anyhow::Result;
-use serde::Deserialize;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct VideoMeta {
-    pub id: String,
-    pub title: String,
-    pub channel: String,
-    pub url: String,
+use crate::cache::Cache;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct Video {
+    pub id: serde_json::Value,
+    pub snippet: serde_json::Value,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct VideoId {
+    #[serde(rename = "kind")]
+    pub kind: String,
+    #[serde(rename = "videoId")]
+    pub video_id: Option<String>,
+    #[serde(rename = "playlistId")]
+    pub playlist_id: Option<String>,
 }
 
 pub struct YouTubeClient {
     api_key: String,
+    http: Client,
     cache: Cache,
 }
 
 impl YouTubeClient {
     pub fn new(api_key: String, cache: Cache) -> Self {
-        Self { api_key, cache }
+        Self {
+            api_key,
+            http: Client::new(),
+            cache,
+        }
     }
 
-    /// Search YouTube for a query string
-    pub async fn search(&self, query: &str) -> Result<Value> {
-        if let Some(cached) = self.cache.get::<Value>(query) {
-            eprintln!("⚡ Using cached results for: {}", query);
+    pub async fn search(&self, query: &str) -> Result<Vec<Video>> {
+        let url = format!(
+            "https://www.googleapis.com/youtube/v3/search?part=snippet&q={}&type=video&maxResults=5&key={}",
+            query, self.api_key
+        );
+
+        if let Some(cached) = self.cache.get::<Vec<Video>>(&url) {
             return Ok(cached);
         }
 
-        let url = "https://www.googleapis.com/youtube/v3/search";
-        let resp: Value = reqwest::Client::new()
-            .get(url)
-            .query(&[
-                ("part", "snippet"),
-                ("type", "video,playlist"),
-                ("maxResults", "50"),
-                ("q", query),
-                ("key", &self.api_key),
-            ])
-            .send()
-            .await?
-            .json()
-            .await?;
+        let resp: Value = self.http.get(&url).send().await?.json().await?;
+        let items: Vec<Video> = match serde_json::from_value(resp["items"].clone()) {
+            Ok(items) => items,
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
 
-        self.cache.put(query, &resp)?;
-        eprintln!("[i] Cached results for: {}", query);
+        // Only keep videos (with videoId)
+        let videos = items
+            .into_iter()
+            .filter(|v| v.id.get("videoId").is_some() || v.id.get("playlistId").is_some())
+            .collect::<Vec<_>>();
 
-        Ok(resp)
+        self.cache.put(&url, &videos)?;
+        Ok(videos)
     }
 
-    /// Fetch playlist items by playlistId
-    pub async fn fetch_playlist_items(&self, playlist_id: &str) -> Result<Value> {
-        let key = format!("playlist:{}", playlist_id);
-        if let Some(cached) = self.cache.get::<Value>(&key) {
-            eprintln!("[i] Using cached playlist: {}", playlist_id);
+    pub async fn search_with_max_results(
+        &self,
+        query: &str,
+        max_results: u32,
+    ) -> anyhow::Result<Vec<Video>> {
+        let url = format!(
+            "https://www.googleapis.com/youtube/v3/search?part=snippet&q={}&type=video,playlist&maxResults={}&key={}",
+            query, max_results, self.api_key
+        );
+
+        if let Some(cached) = self.cache.get::<Vec<Video>>(&url) {
             return Ok(cached);
         }
 
-        let url = "https://www.googleapis.com/youtube/v3/playlistItems";
-        let resp: Value = reqwest::Client::new()
-            .get(url)
-            .query(&[
-                ("part", "snippet"),
-                ("maxResults", "50"),
-                ("playlistId", playlist_id),
-                ("key", &self.api_key),
-            ])
-            .send()
-            .await?
-            .json()
-            .await?;
+        let resp: serde_json::Value = self.http.get(&url).send().await?.json().await?;
+        let items: Vec<Video> = match serde_json::from_value(resp["items"].clone()) {
+            Ok(items) => items,
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
 
-        self.cache.put(&key, &resp)?;
-        eprintln!("[i] Cached playlist: {}", playlist_id);
+        let videos = items
+            .into_iter()
+            .filter(|v| v.id.get("videoId").is_some() || v.id.get("playlistId").is_some())
+            .collect::<Vec<_>>();
 
-        Ok(resp)
+        self.cache.put(&url, &videos)?;
+        Ok(videos)
     }
 }
 
-// ✅ validate_key is NOT tied to a client (it takes `key` directly)
+/// 🔑 Quick check if API key works
 pub async fn validate_key(key: &str) -> bool {
-    let url = "https://www.googleapis.com/youtube/v3/search";
-    let resp = reqwest::Client::new()
-        .get(url)
-        .query(&[
-            ("part", "snippet"),
-            ("maxResults", "1"),
-            ("q", "test"),
-            ("key", key),
-        ])
-        .send()
-        .await;
+    let url = format!(
+        "https://www.googleapis.com/youtube/v3/search?part=snippet&q=test&type=video&maxResults=1&key={}",
+        key
+    );
 
-    resp.map(|r| r.status().is_success()).unwrap_or(false)
+    match Client::new().get(&url).send().await {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
 }

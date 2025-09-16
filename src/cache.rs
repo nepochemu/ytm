@@ -1,4 +1,3 @@
-// src/cache.rs
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
@@ -7,10 +6,9 @@ use serde::{Deserialize, Serialize};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 
-/// Wrapper around cached query results
 #[derive(Serialize, Deserialize)]
 pub struct CacheEntry<T> {
-    pub timestamp: u64, // epoch secs
+    pub timestamp: u64,
     pub data: T,
 }
 
@@ -29,7 +27,6 @@ impl Cache {
     }
 
     fn key_path(&self, key: &str) -> PathBuf {
-        // sanitize query into filename (safe base64 for filenames)
         let safe = STANDARD.encode(key);
         self.dir.join(format!("{}.json", safe))
     }
@@ -39,27 +36,25 @@ impl Cache {
         let raw = fs::read(path).ok()?;
         let entry: CacheEntry<T> = serde_json::from_slice(&raw).ok()?;
 
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).ok()?.as_secs();
         if now - entry.timestamp <= self.ttl.as_secs() {
             Some(entry.data)
         } else {
-            None // stale
+            None
         }
     }
 
     pub fn put<T: Serialize>(&self, key: &str, data: &T) -> anyhow::Result<()> {
         let entry = CacheEntry {
-            timestamp: SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)?
-                .as_secs(),
+            timestamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs(),
             data,
         };
         let raw = serde_json::to_vec(&entry)?;
-        fs::write(self.key_path(key), raw)?;
+        let path = self.key_path(key);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, raw)?;
         Ok(())
     }
 }
