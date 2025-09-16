@@ -1,182 +1,143 @@
-use crate::{api, config};
-use crate::api::YouTubeClient;
-use serde_json::Value;
-use std::{
-    error::Error,
-    fs,
-    io::Write,
-    process::{Command, Stdio},
-};
+use std::fs;
+use std::io::{Write, BufRead, BufReader};
+use std::process::{Command, Stdio};
+use std::os::unix::net::UnixStream;
+use serde_json::json;
 
-/// Run fzf on a list of lines, return the selected index (1-based)
-fn fzf_select(lines: &[String]) -> Option<usize> {
-    let mut child = Command::new("fzf")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("failed to start fzf");
+const PID_FILE: &str = "/tmp/ytm-mpv.pid";
+const SOCK_PATH: &str = "/tmp/ytm-mpv.sock";
 
-    {
-        if let Some(mut stdin) = child.stdin.take() {
-            for line in lines {
-                let _ = writeln!(stdin, "{}", line);
-            }
-        }
-    }
+// Replace your existing play/search integration here
+pub fn search_and_play(query: &str, _api: Option<String>, background: bool) -> anyhow::Result<()> {
+    // TODO: resolve query → video_url (reuse your existing API logic)
+    let url = query; // placeholder
 
-    let output = child.wait_with_output().expect("failed to run fzf");
-    let choice = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-    if choice.is_empty() {
-        None
-    } else {
-        choice.split(':').next().and_then(|s| s.trim().parse().ok())
-    }
+    play(url, background)
 }
 
-/// Perform a search using YouTubeClient (with cache)
-pub async fn search(
-    client: &YouTubeClient,
-    query: Vec<String>,
-    audio_only: bool,
-) -> Result<(), Box<dyn Error>> {
-    let q = query.join(" ");
+pub fn play(url: &str, background: bool) -> anyhow::Result<()> {
+    if background {
+        let _ = fs::remove_file(SOCK_PATH);
 
-    // [!] use client instead of api::search
-    let resp = client.search(&q).await?;
+        let child = Command::new("mpv")
+            .args([
+                "--no-terminal",
+                "--idle=yes",
+                &format!("--input-ipc-server={}", SOCK_PATH),
+                url,
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?;
 
-    // Save results before fzf so `play()` always has fresh data
-    fs::write("last_results.json", serde_json::to_string(&resp)?)?;
-
-    let mut lines = Vec::new();
-
-    let items = resp["items"].as_array().cloned().unwrap_or_default();
-    for (i, item) in items.iter().enumerate() {
-        let kind = item["id"]["kind"].as_str().unwrap_or("");
-        let title = item["snippet"]["title"].as_str().unwrap_or("");
-
-        let line = match kind {
-            "youtube#video" => format!("{}: {}", i + 1, title),
-            "youtube#playlist" => format!("{}: {} [playlist]", i + 1, title),
-            _ => continue,
-        };
-
-        lines.push(line);
-    }
-
-    if lines.is_empty() {
-        println!("No results.");
-        return Ok(());
-    }
-
-    if let Some(selected) = fzf_select(&lines) {
-        return play(client, selected, audio_only).await;
+        fs::write(PID_FILE, child.id().to_string())?;
+        println!("▶ Playing in background: {}", url);
+        println!("Use: ytm pause | next | prev | stop");
     } else {
-        println!("No selection made.");
+        Command::new("mpv").args([url]).status()?;
     }
-
     Ok(())
 }
 
-/// Play a previously selected item
-pub async fn play(
-    client: &YouTubeClient,
-    index: usize,
-    audio_only: bool,
-) -> Result<(), Box<dyn Error>> {
-    let data = match fs::read_to_string("last_results.json") {
-        Ok(d) => d,
+// ---- Controls ----
+
+fn send_mpv(cmd: serde_json::Value) -> anyhow::Result<()> {
+    let mut stream = UnixStream::connect(SOCK_PATH)?;
+    let line = serde_json::to_string(&cmd)? + "\n";
+    stream.write_all(line.as_bytes())?;
+    Ok(())
+}
+
+pub fn pause() -> anyhow::Result<()> {
+    send_mpv(json!({"command": ["cycle", "pause"]}))
+}
+
+pub fn next() -> anyhow::Result<()> {
+    send_mpv(json!({"command": ["playlist-next", "force"]}))
+}
+
+pub fn prev() -> anyhow::Result<()> {
+    send_mpv(json!({"command": ["playlist-prev", "force"]}))
+}
+
+pub fn stop() -> anyhow::Result<()> {
+    if let Ok(()) = send_mpv(json!({"command": ["stop"]})) {
+        return Ok(());
+    }
+    if let Ok(pid_str) = fs::read_to_string(PID_FILE) {
+        if let Ok(pid) = pid_str.trim().parse::<i32>() {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+            let _ = kill(Pid::from_raw(pid), Signal::SIGTERM);
+        }
+    }
+    Ok(())
+}
+
+// ---- Status ----
+
+pub fn status() -> anyhow::Result<()> {
+    loop {
+        let still_playing = show_status_once()?;
+        if !still_playing {
+            println!(); // newline after done
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(10));
+    }
+    Ok(())
+}
+
+fn show_status_once() -> anyhow::Result<bool> {
+    let mut stream = match UnixStream::connect(SOCK_PATH) {
+        Ok(s) => s,
         Err(_) => {
-            eprintln!("No cached results. Run `ytm <query>` first.");
-            return Ok(());
+            println!("(player not running)");
+            return Ok(false);
         }
     };
-    let resp: Value = serde_json::from_str(&data)?;
+    let mut reader = BufReader::new(stream.try_clone()?);
 
-    let items: Vec<Value> = resp
-        .get("items")
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
+    let mut send = |cmd: serde_json::Value| -> anyhow::Result<()> {
+        let line = serde_json::to_string(&cmd)? + "\n";
+        stream.write_all(line.as_bytes())?;
+        Ok(())
+    };
 
-    if index == 0 || index > items.len() {
-        eprintln!("Invalid index. Use 1..{}", items.len());
-        return Ok(());
-    }
+    send(json!({"command": ["get_property", "media-title"]}))?;
+    send(json!({"command": ["get_property", "time-pos"]}))?;
+    send(json!({"command": ["get_property", "duration"]}))?;
 
-    let item = &items[index - 1];
-    let kind = item["id"]["kind"].as_str().unwrap_or("");
+    let mut title = None;
+    let mut pos = None;
+    let mut dur = None;
 
-    match kind {
-        // Video
-        "youtube#video" => {
-            let video_id = item["id"]["videoId"].as_str().unwrap_or("");
-            if video_id.is_empty() {
-                eprintln!("Selected item has no videoId.");
-                return Ok(());
-            }
-            let url = format!("https://youtube.com/watch?v={}", video_id);
-            println!("Playing {}", url);
-
-            if audio_only {
-                Command::new("mpv").arg("--no-video").arg(&url).status()?;
-            } else {
-                Command::new("mpv").arg(&url).status()?;
-            }
+    for _ in 0..3 {
+        let mut buf = String::new();
+        if reader.read_line(&mut buf).is_err() {
+            break;
         }
-
-        // Playlist
-        "youtube#playlist" => {
-            let playlist_id = item["id"]["playlistId"].as_str().unwrap_or("");
-            if playlist_id.is_empty() {
-                eprintln!("Selected item has no playlistId.");
-                return Ok(());
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&buf) {
+            if buf.contains("media-title") {
+                title = val["data"].as_str().map(|s| s.to_string());
+            } else if buf.contains("time-pos") {
+                pos = val["data"].as_f64();
+            } else if buf.contains("duration") {
+                dur = val["data"].as_f64();
             }
-            println!("Fetching playlist {}", playlist_id);
-
-            // [!] use client instead of raw api::fetch_playlist_items
-            let resp = client.fetch_playlist_items(playlist_id).await?;
-
-            let empty = Vec::new();
-            let videos: Vec<&str> = resp["items"]
-                .as_array()
-                .unwrap_or(&empty)
-                .iter()
-                .filter_map(|it| it["snippet"]["resourceId"]["videoId"].as_str())
-                .collect();
-
-            if videos.is_empty() {
-                eprintln!("No videos found in playlist.");
-                return Ok(());
-            }
-
-            let urls: Vec<String> = videos
-                .iter()
-                .map(|id| format!("https://youtube.com/watch?v={}", id))
-                .collect();
-
-            println!("Playing playlist with {} videos…", urls.len());
-
-            if audio_only {
-                Command::new("mpv").arg("--no-video").args(&urls).status()?;
-            } else {
-                Command::new("mpv").args(&urls).status()?;
-            }
-        }
-
-        _ => {
-            eprintln!("Unsupported item type");
         }
     }
 
-    Ok(())
-}
-
-pub async fn set_api_key(key: String) -> Result<(), Box<dyn Error>> {
-    if api::validate_key(&key).await {
-        config::save_api_key(&key);
+    if let Some(t) = title {
+        let pos_str = pos.map(|p| format!("{:.0}:{:02}", (p/60.0).floor(), (p%60.0).round()))
+                         .unwrap_or_else(|| "--:--".to_string());
+        let dur_str = dur.map(|d| format!("{:.0}:{:02}", (d/60.0).floor(), (d%60.0).round()))
+                         .unwrap_or_else(|| "--:--".to_string());
+        print!("\r▶ {}  [{} / {}]   ", t, pos_str, dur_str);
+        std::io::stdout().flush().ok();
+        Ok(true)
     } else {
-        eprintln!("[!] Provided API key is not valid.");
+        println!("(no track playing)");
+        Ok(false)
     }
-    Ok(())
 }

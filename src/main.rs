@@ -1,54 +1,64 @@
-mod api;
-mod config;
-mod commands;
-mod cache;
+use clap::{Parser, Subcommand};
 
-use clap::{Parser, ArgAction};
-use std::error::Error;
-use crate::cache::Cache;
+mod commands;
 
 #[derive(Parser)]
-#[command(
-    name = "ytm",
-    version,
-    about = "Search and play YouTube via mpv + fzf"
-)]
-struct Cli {
-    #[arg(short = 'v', long = "version", action = ArgAction::Version)]
-    version: Option<bool>,
+#[command(author, version, about)]
+pub struct Cli {
+    /// Search and play query
+    pub query: Option<String>,
 
-    #[arg(short = 'n', long)]
-    audio_only: bool,
-
-    query: Vec<String>,
-
+    /// API key override
     #[arg(long)]
-    api: Option<String>,
+    pub api: Option<String>,
+
+    /// Background mode (release terminal, control with pause/stop/next/prev)
+    #[arg(short, long)]
+    pub background: bool,
+
+    #[command(subcommand)]
+    pub cmd: Option<Commands>,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+#[derive(Subcommand)]
+pub enum Commands {
+    Pause,
+    Stop,
+    Next,
+    Prev,
+    Status,
+}
+
+fn try_clipboard_query() -> Option<String> {
+    use copypasta::{ClipboardContext, ClipboardProvider};
+    let mut ctx = ClipboardContext::new().ok()?;
+    let text = ctx.get_contents().ok()?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let cache = Cache::new(
-        dirs::cache_dir().unwrap().join("ytm"),
-        std::time::Duration::from_secs(60 * 60 * 5), // 1 day
-    )?;
-
-    let api_key = config::load_or_prompt_api_key().await;
-    let client = api::YouTubeClient::new(api_key, cache);
-
-
-    if let Some(key) = cli.api {
-        commands::set_api_key(key).await?;
-        return Ok(());
+    match cli.cmd {
+        Some(Commands::Pause)  => commands::pause()?,
+        Some(Commands::Stop)   => commands::stop()?,
+        Some(Commands::Next)   => commands::next()?,
+        Some(Commands::Prev)   => commands::prev()?,
+        Some(Commands::Status) => commands::status()?,
+        None => {
+            if let Some(query) = cli.query {
+                commands::search_and_play(&query, cli.api, cli.background)?;
+            } else if let Some(q) = try_clipboard_query() {
+                commands::search_and_play(&q, cli.api, cli.background)?;
+            } else {
+                commands::status()?;
+            }
+        }
     }
 
-    if cli.query.is_empty() {
-        eprintln!("[!] No search query given.");
-        eprintln!("Usage: ytm [-n] <search terms>  or  ytm --api <key>");
-        return Ok(());
-    }
-
-    commands::search(&client, cli.query, cli.audio_only).await
+    Ok(())
 }

@@ -15,11 +15,8 @@
           pname = "ytm";
           version = "0.1.0";
           src = ./.;
-        #  cargoLock = {
-        #    lockFile = ./Cargo.lock;
-        #  };
-        
-	cargoHash = "sha256-9bG56/rIp/oMB4GRi6Pp5aMjbSW5hMQAahYqo8cUeWE=" s;
+
+          cargoHash = "sha256-9bG56/rIp/oMB4GRi6Pp5aMjbSW5hMQAahYqo8cUeWE=";
 
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
@@ -28,24 +25,27 @@
         packages.default = self.packages.${system}.youtube-mpc;
 
         devShells.default = pkgs.mkShell {
-          buildInputs = [
-            pkgs.rustc
-            pkgs.cargo
-            pkgs.mpv
-            pkgs.openssl
-            pkgs.pkg-config
-            pkgs.clang
-            pkgs.atuin
-            pkgs.zsh-autosuggestions
-            pkgs.zsh-completions
-            pkgs.zsh-syntax-highlighting
-          ];
+  buildInputs = [
+    pkgs.rustc
+    pkgs.cargo
+    pkgs.mpv
+    pkgs.openssl
+    pkgs.pkg-config
+    pkgs.clang
+    pkgs.atuin
+    pkgs.zsh-autosuggestions
+    pkgs.zsh-completions
+    pkgs.zsh-syntax-highlighting
+  ];
 
-          shellHook = ''
-            export SHELL=zsh
-            exec zsh --login
-          '';
-        };
+  # 🔑 Tell Cargo where openssl.pc lives
+  PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+
+  shellHook = ''
+    export SHELL=zsh
+    exec zsh --login
+  '';
+};
+
       });
 }
-
