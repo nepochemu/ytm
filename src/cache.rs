@@ -3,9 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use serde::{Deserialize, Serialize};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use serde::{Deserialize, Serialize};
 
 /// Wrapper around cached query results
 #[derive(Serialize, Deserialize)]

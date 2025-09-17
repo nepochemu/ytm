@@ -13,13 +13,13 @@
       in {
         packages.youtube-mpc = pkgs.rustPlatform.buildRustPackage {
           pname = "ytm";
-          version = "0.1.0";
+          version = "0.2.5";
           src = ./.;
         #  cargoLock = {
         #    lockFile = ./Cargo.lock;
         #  };
         
-	cargoHash = "sha256-9bG56/rIp/oMB4GRi6Pp5aMjbSW5hMQAahYqo8cUeWE=" s;
+	cargoHash = "sha256-9bG56/rIp/oMB4GRi6Pp5aMjbSW5hMQAahYqo8cUeWE=";
 
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
