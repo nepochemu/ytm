@@ -3,8 +3,10 @@ class Ytm < Formula
   homepage "https://github.com/nepochemu/ytm"
   version "0.2.6"
 
-  depends_on "mpv"
   depends_on "fzf"
+  
+  # Note: mpv is required but not auto-installed to avoid massive dependency chain
+  # Install manually: brew install mpv
 
   on_macos do
     on_arm do
