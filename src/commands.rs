@@ -1,5 +1,5 @@
-use crate::{api, config};
 use crate::api::YouTubeClient;
+use crate::{api, config};
 use serde_json::Value;
 use std::{
     error::Error,

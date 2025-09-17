@@ -1,18 +1,14 @@
 mod api;
-mod config;
-mod commands;
 mod cache;
+mod commands;
+mod config;
 
-use clap::{Parser, ArgAction};
-use std::error::Error;
 use crate::cache::Cache;
+use clap::{ArgAction, Parser};
+use std::error::Error;
 
 #[derive(Parser)]
-#[command(
-    name = "ytm",
-    version,
-    about = "Search and play YouTube via mpv + fzf"
-)]
+#[command(name = "ytm", version, about = "Search and play YouTube via mpv + fzf")]
 struct Cli {
     #[arg(short = 'v', long = "version", action = ArgAction::Version)]
     version: Option<bool>,
@@ -37,7 +33,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let api_key = config::load_or_prompt_api_key().await;
     let client = api::YouTubeClient::new(api_key, cache);
-
 
     if let Some(key) = cli.api {
         commands::set_api_key(key).await?;

@@ -1,9 +1,9 @@
+use serde_json::Value;
 use std::{
     fs,
     io::{self, Write},
     path::PathBuf,
 };
-use serde_json::Value;
 
 use crate::api; // for validate_key
 
@@ -60,4 +60,3 @@ pub async fn load_or_prompt_api_key() -> String {
     // fallback: ask user
     prompt_api_key().await
 }
-
