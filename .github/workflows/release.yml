@@ -148,18 +148,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.repository.default_branch }}
 
-      # Wait for GitHub to process the release assets
-      - name: Wait for release assets to be available
+      - name: Download release assets using GitHub CLI
         run: |
-          echo "Waiting 60 seconds for release assets to be fully processed..."
-          sleep 60
-
-      - name: Download release assets with retry
-        uses: robinraju/release-downloader@v1.8
-        with:
-          repository: ${{ github.repository }}
-          tag: ${{ github.ref_name }}
-          fileName: "ytm-macos-*.tar.gz"
+          echo "Downloading assets for release ${{ github.ref_name }}"
+          gh release download ${{ github.ref_name }} --pattern "ytm-macos-*.tar.gz"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
