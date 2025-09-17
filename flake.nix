@@ -16,7 +16,7 @@
           version = "0.1.0";
           src = ./.;
 
-          cargoHash = "sha256-Vg2GKV/i8lobaUM3bmU2iFp6EimwBYIgsVaS5TK6v78=";
+          cargoHash = "sha256-SRq5c4Ruz/glBNablfqFxTWO5gTM4pwRTNjVkXk9C9w=";
 
           nativeBuildInputs = [
             pkgs.pkg-config
@@ -26,6 +26,7 @@
             pkgs.openssl
             pkgs.mpv
             pkgs.cacert
+            pkgs.rust-analyzer
             pkgs.fzf
           ];
 
@@ -69,15 +70,18 @@
             pkgs.zsh-syntax-highlighting
             pkgs.cacert
             pkgs.fzf
+            pkgs.rustPlatform.rustLibSrc
           ];
 
           # 🔑 Tell Cargo where openssl.pc lives
           PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
 
           shellHook = ''
-            export SHELL=zsh
-            exec zsh --login
-          '';
+  export RUST_SRC_PATH=${pkgs.rustPlatform.rustLibSrc}
+  export SHELL=zsh
+  exec zsh --login
+'';
+
         };
       });
 }
