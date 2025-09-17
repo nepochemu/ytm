@@ -141,13 +141,13 @@ ytm portishead third
 - Opens `fzf` with top 50 results (videos + playlists).
 - Select an item → plays immediately in `mpv`.
 
-### Audio-only mode
+### Video mode
 
 ```bash
-ytm -n portishead third
+ytm -v portishead third
 ```
 
-- Same as above, but forces `mpv` to run with `--no-video`.
+- Same as above, but forces `mpv` to open video window.
 
 
 ### Playlists
