@@ -26,6 +26,85 @@ fn format_time(seconds: Option<f64>) -> String {
     }
 }
 
+/// Show detailed status information (immediate, no retries)
+fn show_detailed_status() -> anyhow::Result<()> {
+    if let Ok(mut mpv_client) = Mpv::connect() {
+        if let Ok(status) = mpv_client.get_status() {
+            if let Some(title) = status.title {
+                println!("{}", title);
+                
+                // Show album or playlist title (prefer album over playlist)
+                if let Some(album) = &status.album {
+                    println!("Album: {}", album);
+                } else if let Some(playlist) = &status.playlist_title {
+                    println!("Playlist: {}", playlist);
+                }
+                
+                let pos_str = format_time(status.position);
+                let dur_str = format_time(status.duration);
+                let percentage = if let (Some(pos), Some(dur)) = (status.position, status.duration) {
+                    if dur > 0.0 { (pos / dur * 100.0) as u32 } else { 0 }
+                } else { 0 };
+                
+                // Format playlist info
+                let playlist_info = if let (Some(pos), Some(count)) = (status.playlist_pos, status.playlist_count) {
+                    if count > 1 {
+                        format!("[playlist] #{}/{}", pos, count)
+                    } else {
+                        "[playing]".to_string()
+                    }
+                } else {
+                    "[playing]".to_string()
+                };
+                
+                println!("{}   {} / {} ({}%)", playlist_info, pos_str, dur_str, percentage);
+                println!("volume: 100%");
+                return Ok(());
+            }
+        }
+    }
+    
+    println!("Player not responding");
+    Ok(())
+}
+
+/// Show status with retry logic for startup (when metadata might not be loaded yet)
+fn show_startup_status() -> anyhow::Result<()> {
+    // Wait for track info to become available (retry up to 10 seconds)
+    for attempt in 1..=5 {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        
+        if let Ok(mut mpv_client) = Mpv::connect() {
+            if let Ok(status) = mpv_client.get_status() {
+                if let Some(title) = status.title {
+                    // Check if we have proper metadata (not just URL hash)
+                    if title.contains("playlist?list=") || title.len() < 5 {
+                        // Still loading, continue waiting
+                        if attempt < 5 {
+                            print!(".");
+                            std::io::stdout().flush().ok();
+                        }
+                        continue;
+                    }
+                    
+                    // Got proper track info, display it
+                    show_detailed_status()?;
+                    return Ok(());
+                }
+            }
+        }
+        
+        // Show progress dots
+        if attempt < 5 {
+            print!(".");
+            std::io::stdout().flush().ok();
+        }
+    }
+    
+    println!("Track info not available yet");
+    Ok(())
+}
+
 fn show_status_once() -> anyhow::Result<bool> {
     let mut mpv_client = match Mpv::connect() {
         Ok(client) => client,
@@ -67,7 +146,7 @@ async fn prompt_for_api_key() -> anyhow::Result<String> {
 }
 
 /// Search YouTube, pick first result, and play
-pub async fn search_and_play(query: &str, api: Option<String>, no_video: bool) -> anyhow::Result<()> {
+pub async fn search_and_play(query: &str, api: Option<String>, no_video: bool, background: bool) -> anyhow::Result<()> {
     let mut cfg = Config::load()?;
     if let Some(api_key) = api {
         cfg.set_api_key(api_key);
@@ -139,18 +218,39 @@ pub async fn search_and_play(query: &str, api: Option<String>, no_video: bool) -
     } else {
         format!("https://www.youtube.com/watch?v={}", id)
     };
-    play(&url, no_video)
+    play(&url, no_video, background)
 }
 
 /// Start mpv either foreground or background with IPC enabled
-pub fn play(url: &str, no_video: bool) -> anyhow::Result<()> {
+pub fn play(url: &str, no_video: bool, background: bool) -> anyhow::Result<()> {
     let mut args = Vec::new();
     if no_video {
         args.push("--no-video");
     }
+    if background {
+        args.push("--input-ipc-server=/tmp/ytm-mpv.sock");
+    }
     args.push(url);
-    Command::new("mpv").args(&args).status()?;
-    Ok(())
+    
+    if background {
+        // Start mpv in background with output suppressed from the start
+        let _child = Command::new("mpv")
+            .args(&args)
+            .stdout(std::process::Stdio::null())  // Suppress stdout immediately
+            .stderr(std::process::Stdio::null())  // Suppress stderr immediately  
+            .stdin(std::process::Stdio::null())   // Also suppress stdin
+            .spawn()?;
+        
+        // Show startup status with retry logic and dots
+        show_startup_status()?;
+        println!("\nPlayer started in background. Use 'ytm stop/pause/next/prev' to control.");
+        
+        Ok(())
+    } else {
+        // Run in foreground (blocking)
+        Command::new("mpv").args(&args).status()?;
+        Ok(())
+    }
 }
 
 pub fn pause() -> anyhow::Result<()> {
@@ -160,12 +260,24 @@ pub fn pause() -> anyhow::Result<()> {
 
 pub fn next() -> anyhow::Result<()> {
     use serde_json::json;
-    mpv::send_mpv_command(json!({"command": ["playlist-next", "force"]}))
+    mpv::send_mpv_command(json!({"command": ["playlist-next", "force"]}))?;
+    
+    // Show status after track change
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    show_detailed_status()?;
+    
+    Ok(())
 }
 
 pub fn prev() -> anyhow::Result<()> {
     use serde_json::json;
-    mpv::send_mpv_command(json!({"command": ["playlist-prev", "force"]}))
+    mpv::send_mpv_command(json!({"command": ["playlist-prev", "force"]}))?;
+    
+    // Show status after track change  
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    show_detailed_status()?;
+    
+    Ok(())
 }
 
 pub fn stop() -> anyhow::Result<()> {
@@ -177,7 +289,59 @@ pub fn stop() -> anyhow::Result<()> {
     mpv::force_kill()
 }
 
+/// Debug function to show all available metadata
+fn show_all_metadata() -> anyhow::Result<()> {
+    let mut mpv_client = Mpv::connect()?;
+    
+    println!("=== EXPANDED METADATA SEARCH ===");
+    
+    // Try to get the property list from mpv itself
+    if let Ok(Some(property_list)) = mpv_client.get_property("property-list") {
+        println!("Available properties: {:?}", property_list);
+    }
+    
+    // Try playlist-specific properties
+    let playlist_fields = [
+        "playlist", "playlist-current", "chapter-list", "track-list",
+        "filename", "stream-open-filename", "path", "stream-path"
+    ];
+    
+    println!("\n--- PLAYLIST/TRACK INFO ---");
+    for field in &playlist_fields {
+        if let Ok(Some(value)) = mpv_client.get_property(field) {
+            println!("{}: {:?}", field, value);
+        }
+    }
+    
+    // Try all metadata/ prefixed fields more exhaustively  
+    let metadata_fields = [
+        "metadata", "metadata/by-key", "filtered-metadata",
+        "metadata/list", "track-metadata", "chapter-metadata"
+    ];
+    
+    println!("\n--- METADATA CONTAINERS ---");
+    for field in &metadata_fields {
+        if let Ok(Some(value)) = mpv_client.get_property(field) {
+            println!("{}: {:?}", field, value);
+        }
+    }
+    
+    println!("=== END EXPANDED SEARCH ===");
+    Ok(())
+}
+
 pub fn status() -> anyhow::Result<()> {
+    if !mpv::is_running() {
+        println!("No player currently running");
+        return Ok(());
+    }
+    
+
+    
+    show_detailed_status()
+}
+
+pub fn status_live() -> anyhow::Result<()> {
     loop {
         let still_playing = show_status_once()?;
         if !still_playing {

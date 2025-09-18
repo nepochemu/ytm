@@ -51,38 +51,45 @@ impl Mpv {
         Ok(None)
     }
 
-    /// Get multiple properties at once
+    /// Get multiple properties at once  
     pub fn get_status(&mut self) -> Result<MpvStatus> {
-        // Send all property requests
-        self.send_command(json!({"command": ["get_property", "media-title"]}))?;
-        self.send_command(json!({"command": ["get_property", "time-pos"]}))?;
-        self.send_command(json!({"command": ["get_property", "duration"]}))?;
+        // Get properties individually for reliable parsing
+        let title = self.get_property("media-title")?
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+            
+        let position = self.get_property("time-pos")?
+            .and_then(|v| v.as_f64());
+            
+        let duration = self.get_property("duration")?
+            .and_then(|v| v.as_f64());
 
-        let mut title = None;
-        let mut position = None;
-        let mut duration = None;
+        // Get playlist info
+        let playlist_pos = self.get_property("playlist-pos-1")?
+            .and_then(|v| v.as_i64());
+            
+        let playlist_count = self.get_property("playlist-count")?
+            .and_then(|v| v.as_i64());
 
-        // Read responses
-        for _ in 0..3 {
-            let mut buf = String::new();
-            if self.reader.read_line(&mut buf).is_err() {
-                break;
-            }
-            if let Ok(val) = serde_json::from_str::<Value>(&buf) {
-                if buf.contains("media-title") {
-                    title = val["data"].as_str().map(|s| s.to_string());
-                } else if buf.contains("time-pos") {
-                    position = val["data"].as_f64();
-                } else if buf.contains("duration") {
-                    duration = val["data"].as_f64();
-                }
-            }
-        }
+        // Get album/playlist title from YouTube metadata
+        let album = self.get_property("metadata/album")?
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+            
+        let artist = self.get_property("metadata/artist")?
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+            
+        // Get YouTube playlist title 
+        let playlist_title = self.get_property("metadata/ytdl_playlist_title")?
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
 
         Ok(MpvStatus {
             title,
             position,
             duration,
+            playlist_pos,
+            playlist_count,
+            album,
+            artist,
+            playlist_title,
         })
     }
 
@@ -115,6 +122,11 @@ pub struct MpvStatus {
     pub title: Option<String>,
     pub position: Option<f64>,
     pub duration: Option<f64>,
+    pub playlist_pos: Option<i64>,
+    pub playlist_count: Option<i64>,
+    pub album: Option<String>,
+    pub artist: Option<String>,
+    pub playlist_title: Option<String>,
 }
 
 /// Send a one-off command to MPV (convenience function)
@@ -122,11 +134,16 @@ pub fn send_mpv_command(cmd: Value) -> Result<()> {
     let mut stream = UnixStream::connect(mpv_socket())?;
     let line = serde_json::to_string(&cmd)? + "\n";
     stream.write_all(line.as_bytes())?;
+    
+    // Read response to avoid broken pipe errors
+    let mut reader = BufReader::new(stream.try_clone()?);
+    let mut response = String::new();
+    let _ = reader.read_line(&mut response); // Ignore response, just consume it
+    
     Ok(())
 }
 
 /// Check if MPV is running
-#[allow(dead_code)] // Utility function for future use
 pub fn is_running() -> bool {
     UnixStream::connect(mpv_socket()).is_ok()
 }

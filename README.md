@@ -149,6 +149,16 @@ ytm -v portishead third
 
 - Same as above, but forces `mpv` to open video window.
 
+### Background playback mode
+
+```bash
+ytm -b portishead third
+```
+
+- Starts playback in background and returns to terminal
+- Shows track information and playlist position  
+- Control with: `ytm next`, `ytm prev`, `ytm pause`, `ytm stop`, `ytm status`
+- Can be combined with `-v` flag: `ytm -b -v portishead third`
 
 ### Playlists
 
