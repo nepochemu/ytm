@@ -1,6 +1,6 @@
 # ytm - youtube music
 
-A simple CLI YouTube client in Rust — search and play YouTube audio/videos or playlists directly in your terminal using [mpv](https://mpv.io/) with interactive selection powered by [fzf](https://github.com/junegunn/fzf). The project is ispired by excellent [Yutube-TUI](https://github.com/Siriusmart/youtube-tui) project. The intention here is to have pure head-less client targeted for music listning inside terminal.
+A simple CLI YouTube client in Rust — search and play YouTube audio/videos or playlists directly in your terminal using [mpv](https://mpv.io/) with interactive selection powered by [fzf](https://github.com/junegunn/fzf). The project is ispired by excellent [Yutube-TUI](https://github.com/Siriusmart/youtube-tui) project. Motivation for YTM is to have simple head-less client without graphical ui.
 
 ---
 
@@ -9,7 +9,7 @@ A simple CLI YouTube client in Rust — search and play YouTube audio/videos or 
 - Search YouTube and interactively pick results with `fzf`
 - Play videos or entire playlists directly with `mpv`
 - Default mode is Audio-only. Video mode (-v) is optional.
-- Background listening mode (-b)
+- Background listening mode (-b) doesnt occupy active shell.
 - API key is stored securely and prompted automatically if missing
 - Built with Rust, with great help from [Amp](https://github.com/ampcode-com), packaged via Nix flake
 
