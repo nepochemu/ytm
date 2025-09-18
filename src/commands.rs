@@ -70,28 +70,6 @@ fn show_detailed_status() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn show_status_once() -> anyhow::Result<bool> {
-    let mut mpv_client = match Mpv::connect() {
-        Ok(client) => client,
-        Err(_) => {
-            println!("(player not running)");
-            return Ok(false);
-        }
-    };
-
-    let status = mpv_client.get_status()?;
-    
-    if let Some(title) = status.title {
-        let pos_str = format_time(status.position);
-        let dur_str = format_time(status.duration);
-        print!("\r▶ {}  [{} / {}]   ", title, pos_str, dur_str);
-        std::io::stdout().flush().ok();
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
 /// Interactive API key prompt
 async fn prompt_for_api_key() -> anyhow::Result<String> {
     use crate::api;
@@ -299,47 +277,6 @@ pub fn stop() -> anyhow::Result<()> {
     mpv::force_kill()
 }
 
-/// Debug function to show all available metadata
-fn show_all_metadata() -> anyhow::Result<()> {
-    let mut mpv_client = Mpv::connect()?;
-    
-    println!("=== EXPANDED METADATA SEARCH ===");
-    
-    // Try to get the property list from mpv itself
-    if let Ok(Some(property_list)) = mpv_client.get_property("property-list") {
-        println!("Available properties: {:?}", property_list);
-    }
-    
-    // Try playlist-specific properties
-    let playlist_fields = [
-        "playlist", "playlist-current", "chapter-list", "track-list",
-        "filename", "stream-open-filename", "path", "stream-path"
-    ];
-    
-    println!("\n--- PLAYLIST/TRACK INFO ---");
-    for field in &playlist_fields {
-        if let Ok(Some(value)) = mpv_client.get_property(field) {
-            println!("{}: {:?}", field, value);
-        }
-    }
-    
-    // Try all metadata/ prefixed fields more exhaustively  
-    let metadata_fields = [
-        "metadata", "metadata/by-key", "filtered-metadata",
-        "metadata/list", "track-metadata", "chapter-metadata"
-    ];
-    
-    println!("\n--- METADATA CONTAINERS ---");
-    for field in &metadata_fields {
-        if let Ok(Some(value)) = mpv_client.get_property(field) {
-            println!("{}: {:?}", field, value);
-        }
-    }
-    
-    println!("=== END EXPANDED SEARCH ===");
-    Ok(())
-}
-
 pub fn status() -> anyhow::Result<()> {
     if !mpv::is_running() {
         println!("No player currently running");
@@ -349,17 +286,6 @@ pub fn status() -> anyhow::Result<()> {
 
     
     show_detailed_status()
-}
-
-pub fn status_live() -> anyhow::Result<()> {
-    loop {
-        let still_playing = show_status_once()?;
-        if !still_playing {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_secs(10));
-    }
-    Ok(())
 }
 
 #[cfg(test)]

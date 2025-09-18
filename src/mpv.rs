@@ -74,9 +74,6 @@ impl Mpv {
         let album = self.get_property("metadata/album")?
             .and_then(|v| v.as_str().map(|s| s.to_string()));
             
-        let artist = self.get_property("metadata/artist")?
-            .and_then(|v| v.as_str().map(|s| s.to_string()));
-            
         // Get YouTube playlist title 
         let playlist_title = self.get_property("metadata/ytdl_playlist_title")?
             .and_then(|v| v.as_str().map(|s| s.to_string()));
@@ -88,7 +85,6 @@ impl Mpv {
             playlist_pos,
             playlist_count,
             album,
-            artist,
             playlist_title,
         })
     }
@@ -125,7 +121,6 @@ pub struct MpvStatus {
     pub playlist_pos: Option<i64>,
     pub playlist_count: Option<i64>,
     pub album: Option<String>,
-    pub artist: Option<String>,
     pub playlist_title: Option<String>,
 }
 
