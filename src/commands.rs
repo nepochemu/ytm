@@ -26,14 +26,16 @@ fn format_time(seconds: Option<f64>) -> String {
     }
 }
 
-/// Show detailed status information (immediate, no retries)
+/// Simple status display 
 fn show_detailed_status() -> anyhow::Result<()> {
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    
     if let Ok(mut mpv_client) = Mpv::connect() {
         if let Ok(status) = mpv_client.get_status() {
             if let Some(title) = status.title {
                 println!("{}", title);
                 
-                // Show album or playlist title (prefer album over playlist)
+                // Show album or playlist title
                 if let Some(album) = &status.album {
                     println!("Album: {}", album);
                 } else if let Some(playlist) = &status.playlist_title {
@@ -65,43 +67,6 @@ fn show_detailed_status() -> anyhow::Result<()> {
     }
     
     println!("Player not responding");
-    Ok(())
-}
-
-/// Show status with retry logic for startup (when metadata might not be loaded yet)
-fn show_startup_status() -> anyhow::Result<()> {
-    // Wait for track info to become available (retry up to 10 seconds)
-    for attempt in 1..=5 {
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        
-        if let Ok(mut mpv_client) = Mpv::connect() {
-            if let Ok(status) = mpv_client.get_status() {
-                if let Some(title) = status.title {
-                    // Check if we have proper metadata (not just URL hash)
-                    if title.contains("playlist?list=") || title.len() < 5 {
-                        // Still loading, continue waiting
-                        if attempt < 5 {
-                            print!(".");
-                            std::io::stdout().flush().ok();
-                        }
-                        continue;
-                    }
-                    
-                    // Got proper track info, display it
-                    show_detailed_status()?;
-                    return Ok(());
-                }
-            }
-        }
-        
-        // Show progress dots
-        if attempt < 5 {
-            print!(".");
-            std::io::stdout().flush().ok();
-        }
-    }
-    
-    println!("Track info not available yet");
     Ok(())
 }
 
@@ -241,8 +206,8 @@ pub fn play(url: &str, no_video: bool, background: bool) -> anyhow::Result<()> {
             .stdin(std::process::Stdio::null())   // Also suppress stdin
             .spawn()?;
         
-        // Show startup status with retry logic and dots
-        show_startup_status()?;
+        // Show status with retry logic  
+        show_detailed_status()?;
         println!("\nPlayer started in background. Use 'ytm stop/pause/next/prev' to control.");
         
         Ok(())
@@ -260,23 +225,63 @@ pub fn pause() -> anyhow::Result<()> {
 
 pub fn next() -> anyhow::Result<()> {
     use serde_json::json;
+    
+    // Get current track position before change
+    let current_pos = if let Ok(mut client) = Mpv::connect() {
+        client.get_property("playlist-pos-1").ok().flatten().and_then(|v| v.as_i64())
+    } else {
+        None
+    };
+    
     mpv::send_mpv_command(json!({"command": ["playlist-next", "force"]}))?;
     
-    // Show status after track change
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    show_detailed_status()?;
+    // Wait for actual track position change (not timing)
+    for _ in 0..10 {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        if let Ok(mut client) = Mpv::connect() {
+            if let Ok(Some(new_pos)) = client.get_property("playlist-pos-1").map(|v| v.and_then(|val| val.as_i64())) {
+                if Some(new_pos) != current_pos {
+                    // Position changed, show status
+                    show_detailed_status()?;
+                    return Ok(());
+                }
+            }
+        }
+    }
     
+    // Fallback if position detection fails
+    show_detailed_status()?;
     Ok(())
 }
 
 pub fn prev() -> anyhow::Result<()> {
     use serde_json::json;
+    
+    // Get current track position before change
+    let current_pos = if let Ok(mut client) = Mpv::connect() {
+        client.get_property("playlist-pos-1").ok().flatten().and_then(|v| v.as_i64())
+    } else {
+        None
+    };
+    
     mpv::send_mpv_command(json!({"command": ["playlist-prev", "force"]}))?;
     
-    // Show status after track change  
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    show_detailed_status()?;
+    // Wait for actual track position change (not timing)
+    for _ in 0..10 {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        if let Ok(mut client) = Mpv::connect() {
+            if let Ok(Some(new_pos)) = client.get_property("playlist-pos-1").map(|v| v.and_then(|val| val.as_i64())) {
+                if Some(new_pos) != current_pos {
+                    // Position changed, show status
+                    show_detailed_status()?;
+                    return Ok(());
+                }
+            }
+        }
+    }
     
+    // Fallback if position detection fails
+    show_detailed_status()?;
     Ok(())
 }
 
