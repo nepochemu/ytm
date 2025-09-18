@@ -10,7 +10,7 @@ A simple CLI YouTube client in Rust — search and play YouTube audio/videos or 
 - Play videos or entire playlists directly with `mpv`
 - Default mode is Audio-only. Video mode (-v) is optional.
 - Background listening mode (-b) doesnt occupy active shell.
-- API key is stored securely and prompted automatically if missing
+- API key is stored locally and prompted automatically if missing
 - Built with Rust, with great help from [Amp](https://github.com/ampcode-com), packaged via Nix flake
 
 ---
