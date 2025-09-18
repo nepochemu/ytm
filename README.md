@@ -74,7 +74,7 @@ The binary will be available globally as `ytm`.
 Download and extract the prebuilt binary:
 
 ```bash
-curl -L -o ytm-linux-x86_64.tar.gz https://github.com/nepochemu/ytm/releases/download/v0.2.6/ytm-linux-x86_64.tar.gz
+curl -L -o ytm-linux-x86_64.tar.gz https://github.com/nepochemu/ytm/releases/download/v0.2.7/ytm-linux-x86_64.tar.gz
 tar -xvzf ytm-linux-x86_64.tar.gz
 
 sudo mv ytm /usr/local/bin/
