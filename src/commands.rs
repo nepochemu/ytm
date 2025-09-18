@@ -223,6 +223,11 @@ pub fn pause() -> anyhow::Result<()> {
     mpv::send_mpv_command(json!({"command": ["cycle", "pause"]}))
 }
 
+pub fn resume() -> anyhow::Result<()> {
+    use serde_json::json;
+    mpv::send_mpv_command(json!({"command": ["cycle", "pause"]}))
+}
+
 pub fn next() -> anyhow::Result<()> {
     use serde_json::json;
     

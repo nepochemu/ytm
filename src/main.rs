@@ -10,7 +10,7 @@ mod mpv;
 #[command(name = "ytm")]
 #[command(about = "YouTube terminal music player")]
 #[command(version)]
-#[command(after_help = "While in -b (background) mode, use ytm next/prev/pause/stop/status commands to control background playback")]
+#[command(after_help = "While in -b (background) mode, use ytm pause/resume/next/prev/stop/status commands to control background playback")]
 struct Cli {
     /// Search term (shortcut for `ytm search <term>`) - supports multiple words
     query: Vec<String>,
@@ -19,8 +19,8 @@ struct Cli {
     #[arg(short = 'v', long, help = "Enable video window (default is audio-only)")]
     video: bool,
 
-    /// Run player in background and return to terminal (enables next/prev/pause/stop/status commands)
-    #[arg(short = 'b', long, help = "Run player in background (enables next/prev/pause/stop/status commands)")]
+    /// Run player in background and return to terminal (enables pause/resume/next/prev/stop/status commands)
+    #[arg(short = 'b', long, help = "Run player in background (enables pause/resume/next/prev/stop/status commands)")]
     background: bool,
 
     #[command(subcommand)]
@@ -51,7 +51,7 @@ enum Commands {
 
 /// Check if a query string is a player control command
 fn is_control_command(query: &str) -> bool {
-    matches!(query, "stop" | "pause" | "next" | "prev" | "status")
+    matches!(query, "stop" | "pause" | "resume" | "next" | "prev" | "status")
 }
 
 /// Execute a control command on the running player
@@ -59,6 +59,7 @@ fn execute_control_command(cmd: &str) -> anyhow::Result<()> {
     match cmd {
         "stop" => commands::stop(),
         "pause" => commands::pause(),
+        "resume" => commands::resume(),
         "next" => commands::next(),
         "prev" => commands::prev(),
         "status" => commands::status(),

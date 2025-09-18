@@ -73,12 +73,12 @@ The binary will be available globally as `ytm`.
 Download and extract the prebuilt binary:
 
 ```bash
-curl -L -o ytm-linux-x86_64.tar.gz https://github.com/nepochemu/ytm/releases/download/v0.2.3/ytm-linux-x86_64.tar.gz
+curl -L -o ytm-linux-x86_64.tar.gz https://github.com/nepochemu/ytm/releases/download/v0.2.6/ytm-linux-x86_64.tar.gz
 tar -xvzf ytm-linux-x86_64.tar.gz
 
 sudo mv ytm /usr/local/bin/
 
-ytm -v
+ytm --version
 ```
 
 
@@ -157,7 +157,7 @@ ytm -b portishead third
 
 - Starts playback in background and returns to terminal
 - Shows track information and playlist position  
-- Control with: `ytm next`, `ytm prev`, `ytm pause`, `ytm stop`, `ytm status`
+- Control with: `ytm next`, `ytm prev`, `ytm pause`, `ytm resume`, `ytm stop`, `ytm status`
 - Can be combined with `-v` flag: `ytm -b -v portishead third`
 
 ### Playlists
