@@ -21,3 +21,5 @@ ytm-*.tar.gz
 # Build instructions
 BUILD_WORKFLOW.md
 
+AGENTS.md
+rustfmt.toml
