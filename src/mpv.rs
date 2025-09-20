@@ -41,7 +41,7 @@ impl Mpv {
     #[allow(dead_code)] // Part of public API, may be used in future
     pub fn get_property(&mut self, property: &str) -> Result<Option<Value>> {
         self.send_command(json!({"command": ["get_property", property]}))?;
-        
+
         let mut buf = String::new();
         if self.reader.read_line(&mut buf).is_ok() {
             if let Ok(val) = serde_json::from_str::<Value>(&buf) {
@@ -54,28 +54,31 @@ impl Mpv {
     /// Get multiple properties at once  
     pub fn get_status(&mut self) -> Result<MpvStatus> {
         // Get properties individually for reliable parsing
-        let title = self.get_property("media-title")?
+        let title = self
+            .get_property("media-title")?
             .and_then(|v| v.as_str().map(|s| s.to_string()));
-            
-        let position = self.get_property("time-pos")?
-            .and_then(|v| v.as_f64());
-            
-        let duration = self.get_property("duration")?
-            .and_then(|v| v.as_f64());
+
+        let position = self.get_property("time-pos")?.and_then(|v| v.as_f64());
+
+        let duration = self.get_property("duration")?.and_then(|v| v.as_f64());
 
         // Get playlist info
-        let playlist_pos = self.get_property("playlist-pos-1")?
+        let playlist_pos = self
+            .get_property("playlist-pos-1")?
             .and_then(|v| v.as_i64());
-            
-        let playlist_count = self.get_property("playlist-count")?
+
+        let playlist_count = self
+            .get_property("playlist-count")?
             .and_then(|v| v.as_i64());
 
         // Get album/playlist title from YouTube metadata
-        let album = self.get_property("metadata/album")?
+        let album = self
+            .get_property("metadata/album")?
             .and_then(|v| v.as_str().map(|s| s.to_string()));
-            
-        // Get YouTube playlist title 
-        let playlist_title = self.get_property("metadata/ytdl_playlist_title")?
+
+        // Get YouTube playlist title
+        let playlist_title = self
+            .get_property("metadata/ytdl_playlist_title")?
             .and_then(|v| v.as_str().map(|s| s.to_string()));
 
         Ok(MpvStatus {
@@ -129,12 +132,12 @@ pub fn send_mpv_command(cmd: Value) -> Result<()> {
     let mut stream = UnixStream::connect(mpv_socket())?;
     let line = serde_json::to_string(&cmd)? + "\n";
     stream.write_all(line.as_bytes())?;
-    
+
     // Read response to avoid broken pipe errors
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut response = String::new();
     let _ = reader.read_line(&mut response); // Ignore response, just consume it
-    
+
     Ok(())
 }
 

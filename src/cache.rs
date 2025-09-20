@@ -2,9 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use serde::{Deserialize, Serialize};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct CacheEntry<T> {
@@ -36,7 +36,10 @@ impl Cache {
         let raw = fs::read(path).ok()?;
         let entry: CacheEntry<T> = serde_json::from_slice(&raw).ok()?;
 
-        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).ok()?.as_millis();
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()?
+            .as_millis();
         if now - entry.timestamp_millis <= self.ttl.as_millis() {
             Some(entry.data)
         } else {
@@ -46,7 +49,9 @@ impl Cache {
 
     pub fn put<T: Serialize>(&self, key: &str, data: &T) -> anyhow::Result<()> {
         let entry = CacheEntry {
-            timestamp_millis: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_millis(),
+            timestamp_millis: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)?
+                .as_millis(),
             data,
         };
         let raw = serde_json::to_vec(&entry)?;
@@ -74,7 +79,7 @@ mod tests {
     fn test_cache_put_and_get() {
         let temp_dir = tempdir().unwrap();
         let cache = Cache::new(temp_dir.path(), Duration::from_secs(60)).unwrap();
-        
+
         let test_data = TestData {
             value: "test_value".to_string(),
         };
@@ -92,7 +97,7 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         // Very short TTL for testing
         let cache = Cache::new(temp_dir.path(), Duration::from_millis(50)).unwrap();
-        
+
         let test_data = TestData {
             value: "expired_test".to_string(),
         };

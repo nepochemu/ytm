@@ -10,39 +10,7 @@ A simple CLI YouTube client in Rust — search and play YouTube audio/videos or 
 - Play videos or entire playlists directly with `mpv`
 - Default mode is Audio-only. Video mode (-v) is optional.
 - Background listening mode (-b) doesnt occupy active shell.
-- API key is stored locally and prompted automatically if missing
-- Built with Rust, with great help from [Amp](https://github.com/ampcode-com), packaged via Nix flake
-
----
-
-## API Key Setup
-
-ytm uses the **YouTube Data API v3**.  
-You must provide a valid API key from Google Cloud. 
-
-### API key Limitations
-Google free plan is limited to 100 searches per day. Repetitive seach queries will be cached locally to minimise API calls.
-
-
-### Steps to create an API key
-
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).  
-2. Create or select a project.  
-3. Enable the **YouTube Data API v3** for your project:
-   - APIs & Services → Library → search "YouTube Data API v3" → Enable.
-4. Go to **APIs & Services → Credentials**.  
-5. Click **+ Create Credentials → API key**.  
-   - Copy the generated key.
-
-### Restrict your API key (recommended)
-Dont leave your API key unrestricted to prevent unauthorised usage of the key in case of key leakage.
-
-- Under **Key restrictions**, set:
-  - **API restrictions** → restrict to *YouTube Data API v3*.  
-  - **Application restrictions** →  
-    - If you always use from home/server → restrict by IP (IPv4 or IPv6 `/64` prefix).  
-    - Otherwise, just leave API restriction in place.
-
+- Built with Rust, with great help from [Amp](https://github.com/ampcode-com), and [codex](https://chatgpt.com/codex),  packaged via Nix flake
 
 
 
@@ -74,7 +42,7 @@ The binary will be available globally as `ytm`.
 Download and extract the prebuilt binary:
 
 ```bash
-curl -L -o ytm-linux-x86_64.tar.gz https://github.com/nepochemu/ytm/releases/download/v0.2.7/ytm-linux-x86_64.tar.gz
+curl -L -o ytm-linux-x86_64.tar.gz https://github.com/nepochemu/ytm/releases/download/v0.2.8/ytm-linux-x86_64.tar.gz
 tar -xvzf ytm-linux-x86_64.tar.gz
 
 sudo mv ytm /usr/local/bin/
@@ -124,14 +92,6 @@ This will download the correct prebuilt binary for your Mac (arm64 for Apple Sil
 ## Usage
 
 
-### First run
-
-The first time you run `ytm`, you will be prompted for an API key.  
-You can also set or update it manually:
-
-```bash
-ytm --api <YOUR_API_KEY>
-```
 
 ### Interactive search and play
 
@@ -176,13 +136,6 @@ This works the same for both normal videos and playlists, but with playlists you
 
 
 
-### Update API key
-
-```bash
-ytm --api <YOUR_API_KEY>
-```
-
----
 
 ## 🛠 Development
 
@@ -207,14 +160,7 @@ nix build .
 
 ---
 
-### Project structure
 
-- `src/main.rs` → CLI parsing & command dispatch
-- `src/api.rs` → YouTube API functions (search, playlists, validation)
-- `src/config.rs` → API key storage and handling
-- `src/commands.rs` → search + fzf integration, play logic, API key setting
-
----
 
 ## 📜 License
 

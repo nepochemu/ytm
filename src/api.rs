@@ -1,12 +1,13 @@
-use anyhow::Result;
-use reqwest::Client;
+use std::fs;
+use std::path::Path;
+
+use anyhow::{Context, Result};
+use rustypipe::{
+    client::RustyPipe,
+    model::{PlaylistItem, VideoItem, YouTubeItem},
+};
 
 use crate::cache::Cache;
-
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct SearchResponse {
-    pub items: Vec<SearchItem>,
-}
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct SearchItem {
@@ -32,127 +33,209 @@ pub struct Snippet {
 }
 
 pub struct YouTubeClient {
-    api_key: String,
-    http: Client,
+    pipe: RustyPipe,
     cache: Cache,
 }
 
 impl YouTubeClient {
-    pub fn new(api_key: String, cache: Cache) -> Self {
-        Self {
-            api_key,
-            http: Client::new(),
-            cache,
-        }
+    pub fn new<P: AsRef<Path>>(storage_root: P, cache: Cache) -> Result<Self> {
+        let storage_dir = storage_root.as_ref().join("rustypipe");
+        fs::create_dir_all(&storage_dir).with_context(|| {
+            format!("failed to create rustypipe cache dir at {:?}", storage_dir)
+        })?;
+
+        let pipe = RustyPipe::builder()
+            .storage_dir(storage_dir)
+            .build()
+            .context("failed to initialize RustyPipe")?;
+
+        Ok(Self { pipe, cache })
     }
 
-    /// Search YouTube with optional parameters
     pub async fn search(&self, query: &str, max_results: Option<u32>) -> Result<Vec<SearchItem>> {
-        let max_results = max_results.unwrap_or(5);
-        let search_type = if max_results > 10 { "video,playlist" } else { "video" };
-        
-        let url = format!(
-            "https://www.googleapis.com/youtube/v3/search?part=snippet&q={}&type={}&maxResults={}&key={}",
-            query, search_type, max_results, self.api_key
-        );
+        let max_results = max_results.unwrap_or(5).clamp(1, 50) as usize;
+        let cache_key = format!("ytm::search::{max_results}::{query}");
 
-        self.get_search_results_cached(&url).await
-    }
-
-    /// Generic cached HTTP GET for YouTube API
-    async fn get_search_results_cached(&self, url: &str) -> Result<Vec<SearchItem>> {
-        if let Some(cached) = self.cache.get::<Vec<SearchItem>>(url) {
+        if let Some(cached) = self.cache.get::<Vec<SearchItem>>(&cache_key) {
             return Ok(cached);
         }
 
-        let resp: SearchResponse = self.http.get(url).send().await?.json().await?;
+        let pipe_query = self.pipe.query();
+        let search_result = pipe_query
+            .search::<YouTubeItem, _>(query)
+            .await
+            .context("rustypipe search request failed")?;
 
-        // Filter to only videos and playlists with valid IDs
-        let items = resp.items
+        let mut paginator = search_result.items;
+        if paginator.items.len() < max_results {
+            paginator
+                .extend_limit(pipe_query.clone(), max_results)
+                .await
+                .context("failed to extend search results")?;
+        }
+
+        let items: Vec<SearchItem> = paginator
+            .items
             .into_iter()
-            .filter(|item| item.id.video_id.is_some() || item.id.playlist_id.is_some())
+            .filter_map(|item| SearchItem::try_from(item).ok())
+            .take(max_results)
             .collect();
 
-        self.cache.put(url, &items)?;
+        if !items.is_empty() {
+            // Cache only on success so transient errors don't poison the cache
+            self.cache
+                .put(&cache_key, &items)
+                .context("failed to cache search results")?;
+        }
+
         Ok(items)
     }
 }
 
-/// 🔑 Quick check if API key works
-pub async fn validate_key(key: &str) -> bool {
-    let url = format!(
-        "https://www.googleapis.com/youtube/v3/search?part=snippet&q=test&type=video&maxResults=1&key={}",
-        key
-    );
+impl TryFrom<YouTubeItem> for SearchItem {
+    type Error = ();
 
-    match Client::new().get(&url).send().await {
-        Ok(resp) => resp.status().is_success(),
-        Err(_) => false,
+    fn try_from(value: YouTubeItem) -> Result<Self, Self::Error> {
+        match value {
+            YouTubeItem::Video(video) => Ok(video.into()),
+            YouTubeItem::Playlist(playlist) => Ok(playlist.into()),
+            YouTubeItem::Channel(_) => Err(()),
+        }
+    }
+}
+
+impl From<VideoItem> for SearchItem {
+    fn from(video: VideoItem) -> Self {
+        let channel_title = video
+            .channel
+            .map(|channel| channel.name)
+            .unwrap_or_else(|| "Unknown channel".to_string());
+
+        SearchItem {
+            id: ItemId {
+                kind: "youtube#video".to_string(),
+                video_id: Some(video.id),
+                playlist_id: None,
+            },
+            snippet: Snippet {
+                title: video.name,
+                channel_title,
+                description: video.short_description,
+            },
+        }
+    }
+}
+
+impl From<PlaylistItem> for SearchItem {
+    fn from(playlist: PlaylistItem) -> Self {
+        let channel_title = playlist
+            .channel
+            .map(|channel| channel.name)
+            .unwrap_or_else(|| "Unknown channel".to_string());
+
+        let description = playlist
+            .video_count
+            .map(|count| format!("{} videos", count));
+
+        SearchItem {
+            id: ItemId {
+                kind: "youtube#playlist".to_string(),
+                video_id: None,
+                playlist_id: Some(playlist.id),
+            },
+            snippet: Snippet {
+                title: playlist.name,
+                channel_title,
+                description,
+            },
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rustypipe::model::{ChannelItem, PlaylistItem, VideoItem, YouTubeItem};
+    use serde_json::json;
 
     #[test]
-    fn test_search_item_deserialization() {
-        let json = r#"{
-            "id": {
-                "kind": "youtube#video",
-                "videoId": "test_video_id"
-            },
-            "snippet": {
-                "title": "Test Video Title",
-                "channelTitle": "Test Channel",
-                "description": "Test description"
-            }
-        }"#;
-
-        let item: SearchItem = serde_json::from_str(json).unwrap();
-        assert_eq!(item.id.video_id, Some("test_video_id".to_string()));
-        assert_eq!(item.snippet.title, "Test Video Title");
-        assert_eq!(item.snippet.channel_title, "Test Channel");
-    }
-
-    #[test]
-    fn test_playlist_item_deserialization() {
-        let json = r#"{
-            "id": {
-                "kind": "youtube#playlist",
-                "playlistId": "test_playlist_id"
-            },
-            "snippet": {
-                "title": "Test Playlist",
-                "channelTitle": "Test Channel"
-            }
-        }"#;
-
-        let item: SearchItem = serde_json::from_str(json).unwrap();
-        assert_eq!(item.id.playlist_id, Some("test_playlist_id".to_string()));
-        assert_eq!(item.id.video_id, None);
-        assert_eq!(item.snippet.title, "Test Playlist");
-    }
-
-    #[test] 
-    fn test_search_response_deserialization() {
-        let json = r#"{
-            "items": [
+    fn maps_video_items() {
+        let json_item = json!({
+            "id": "video123",
+            "name": "Fantastic Track",
+            "duration": 240,
+            "thumbnail": [
                 {
-                    "id": {
-                        "kind": "youtube#video", 
-                        "videoId": "video1"
-                    },
-                    "snippet": {
-                        "title": "Video 1",
-                        "channelTitle": "Channel 1"
-                    }
+                    "url": "http://example.com/thumb.jpg",
+                    "width": 1280,
+                    "height": 720
                 }
-            ]
-        }"#;
+            ],
+            "channel": {
+                "id": "channelABC",
+                "name": "Great Artist",
+                "avatar": [],
+                "verification": "verified",
+                "subscriber_count": null
+            },
+            "publish_date": null,
+            "publish_date_txt": null,
+            "view_count": 1000,
+            "is_live": false,
+            "is_short": false,
+            "is_upcoming": false,
+            "short_description": "A lovely song"
+        });
 
-        let response: SearchResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(response.items.len(), 1);
-        assert_eq!(response.items[0].snippet.title, "Video 1");
+        let item: VideoItem = serde_json::from_value(json_item).unwrap();
+
+        let mapped: SearchItem = item.into();
+        assert_eq!(mapped.id.video_id.as_deref(), Some("video123"));
+        assert_eq!(mapped.snippet.title, "Fantastic Track");
+        assert_eq!(mapped.snippet.channel_title, "Great Artist");
+        assert_eq!(mapped.snippet.description.as_deref(), Some("A lovely song"));
+    }
+
+    #[test]
+    fn maps_playlist_items() {
+        let json_item = json!({
+            "id": "playlist456",
+            "name": "Chill Mix",
+            "thumbnail": [],
+            "channel": {
+                "id": "channelXYZ",
+                "name": "DJ Test",
+                "avatar": [],
+                "verification": "none",
+                "subscriber_count": null
+            },
+            "video_count": 42
+        });
+
+        let item: PlaylistItem = serde_json::from_value(json_item).unwrap();
+
+        let mapped: SearchItem = item.into();
+        assert_eq!(mapped.id.playlist_id.as_deref(), Some("playlist456"));
+        assert_eq!(mapped.snippet.title, "Chill Mix");
+        assert_eq!(mapped.snippet.channel_title, "DJ Test");
+        assert_eq!(mapped.snippet.description.as_deref(), Some("42 videos"));
+    }
+
+    #[test]
+    fn drops_channel_items() {
+        let channel_json = json!({
+            "id": "channel1",
+            "name": "Only Channels",
+            "handle": null,
+            "avatar": [],
+            "verification": "none",
+            "subscriber_count": 10,
+            "short_description": "About"
+        });
+
+        let channel: ChannelItem = serde_json::from_value(channel_json).unwrap();
+        let item = YouTubeItem::Channel(channel);
+
+        assert!(SearchItem::try_from(item).is_err());
     }
 }
