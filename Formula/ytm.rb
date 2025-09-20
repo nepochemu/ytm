@@ -1,7 +1,7 @@
 class Ytm < Formula
   desc "YouTube terminal music client"
   homepage "https://github.com/nepochemu/ytm"
-  version "0.2.7"
+  version "0.2.8"
 
   depends_on "fzf"
   
@@ -10,13 +10,13 @@ class Ytm < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/nepochemu/ytm/releases/download/v0.2.7/ytm-macos-arm64.tar.gz"
-      sha256 "fcf209b033feea3aa947773823f7b313ce4319715b4e2482628f7dd8f4bddb82"
+      url "https://github.com/nepochemu/ytm/releases/download/v0.2.8/ytm-macos-arm64.tar.gz"
+      sha256 "ab2095b350a563435b32542c267cb151db486780b9370f5efe4b35ec94396d94"
     end
 
     on_intel do
-      url "https://github.com/nepochemu/ytm/releases/download/v0.2.7/ytm-macos-x86_64.tar.gz"
-      sha256 "c8d4f79cfaba0f564805f8a7aec922ef2d678f4a0534941dd8468cae991ee893"
+      url "https://github.com/nepochemu/ytm/releases/download/v0.2.8/ytm-macos-x86_64.tar.gz"
+      sha256 "0dc333733c791f6bbc7679c43c1a204c15e797d04dd554d618fbd7761cbede3e"
     end
   end
 
