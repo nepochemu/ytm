@@ -16,7 +16,7 @@
           version = "0.1.0";
           src = ./.;
 
-          cargoHash = "sha256-QBMnZ+1Mb7YU2rqDyD0CRNZL/GfCKuAeU7kcg2ZBeeM=";
+          cargoHash = "sha256-VFr7SJK6GIUfdLdc4zPItUo6NypyNeq5cUGeWJ5iDs8=";
 
           nativeBuildInputs = [
             pkgs.pkg-config

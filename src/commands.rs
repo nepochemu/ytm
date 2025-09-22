@@ -134,7 +134,7 @@ pub async fn search_and_play(query: &str, no_video: bool, background: bool) -> a
         return Err(anyhow::anyhow!("No results for '{}'", query));
     }
 
-    let mut choices: Vec<SearchChoice> =
+    let choices: Vec<SearchChoice> =
         results.iter().filter_map(SearchChoice::from_item).collect();
 
     if choices.is_empty() {
@@ -144,7 +144,6 @@ pub async fn search_and_play(query: &str, no_video: bool, background: bool) -> a
         ));
     }
 
-    choices.sort_by(|a, b| a.label.cmp(&b.label));
     let fzf = Command::new("fzf")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
