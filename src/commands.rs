@@ -176,7 +176,15 @@ pub fn play(url: &str, no_video: bool, background: bool) -> anyhow::Result<()> {
     let mut args = Vec::new();
     if no_video {
         args.push("--no-video");
+        args.push("--ytdl-format=bestaudio/best");
+    } else {
+        // Let yt-dlp pick the best adaptive combo, falling back to a single progressive stream
+        args.push("--ytdl-format=bestvideo+bestaudio/best");
     }
+    // Ask yt-dlp to use the Android client profile to prefer AVC/MP4 streams
+    args.push("--ytdl-raw-options=extractor-args=youtube:player_client=android");
+    // Force mpv's ytdl_hook to use yt-dlp when available in PATH for consistent format handling
+    args.push("--script-opts=ytdl_hook-ytdl_path=yt-dlp");
     if background {
         args.push("--input-ipc-server=/tmp/ytm-mpv.sock");
     }
