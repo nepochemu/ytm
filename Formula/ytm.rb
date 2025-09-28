@@ -4,9 +4,7 @@ class Ytm < Formula
   version "0.3.0"
 
   depends_on "fzf"
-  
-  # Note: mpv is required but not auto-installed to avoid massive dependency chain
-  # Install manually: brew install mpv
+  depends_on "mpv"
 
   on_macos do
     on_arm do
